@@ -1,17 +1,17 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, readFile, symlink } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { createEvidenceLaneFixture, removeEvidenceLaneFixture } from "./support/evidence-lane-fixture";
 
-const execFileAsync = promisify(execFile);
 const laneScript = path.join(process.cwd(), "scripts/evidence/lane.mjs");
 const receiptSchema = z.object({
   verdict: z.enum(["pass", "fail"]),
+  profile: z.string(),
   payloadCommand: z.array(z.string()),
   payloadExitCode: z.number().int(),
+  failureCode: z.string().nullable(),
   nestedReceipt: z.string().nullable()
 });
 
@@ -19,10 +19,6 @@ type LaneResult = {
   exitCode: number;
   stderr: string;
 };
-
-async function run(command: string, args: string[], cwd: string): Promise<void> {
-  await execFileAsync(command, args, { cwd, encoding: "utf8" });
-}
 
 async function runLane(
   repository: string,
@@ -56,59 +52,19 @@ describe("evidence lane", () => {
   let sha = "";
 
   beforeAll(async () => {
-    fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-test-"));
-    repository = path.join(fixtureRoot, "repository");
-    const packageDirectory = path.join(repository, "fixture-bin");
-    await mkdir(packageDirectory, { recursive: true });
-    await writeFile(path.join(repository, ".gitignore"), "node_modules\n", "utf8");
-    await writeFile(
-      path.join(repository, "package.json"),
-      `${JSON.stringify({
-        private: true,
-        scripts: { "probe-dependency": "fixture-bin" },
-        devDependencies: { "fixture-bin": "file:./fixture-bin" }
-      })}\n`,
-      "utf8"
-    );
-    await writeFile(
-      path.join(packageDirectory, "package.json"),
-      `${JSON.stringify({ name: "fixture-bin", version: "1.0.0", bin: { "fixture-bin": "bin.mjs" } })}\n`,
-      "utf8"
-    );
-    const fixtureExecutable = path.join(packageDirectory, "bin.mjs");
-    await writeFile(
-      fixtureExecutable,
-      `#!/usr/bin/env node
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
-const equals = process.argv.find((argument) => argument.startsWith("--out="));
-const separate = process.argv.indexOf("--out");
-const output = equals?.slice(6) ?? (separate === -1 ? undefined : process.argv[separate + 1]);
-if (output) {
-  mkdirSync(output, { recursive: true });
-  writeFileSync(path.join(output, "result.json"), "{}\\n", "utf8");
-}
-`,
-      "utf8"
-    );
-    await chmod(fixtureExecutable, 0o755);
-    await run("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"], repository);
-    await run("git", ["init"], repository);
-    await run("git", ["config", "user.name", "Evidence Lane Test"], repository);
-    await run("git", ["config", "user.email", "evidence-lane@example.invalid"], repository);
-    await run("git", ["add", "."], repository);
-    await run("git", ["commit", "-m", "test fixture"], repository);
-    const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repository, encoding: "utf8" });
-    sha = stdout.trim();
+    const fixture = await createEvidenceLaneFixture();
+    fixtureRoot = fixture.root;
+    repository = fixture.repository;
+    sha = fixture.sha;
   });
 
   afterAll(async () => {
-    if (fixtureRoot) await rm(fixtureRoot, { recursive: true, force: true });
+    if (fixtureRoot) await removeEvidenceLaneFixture(fixtureRoot);
   });
 
   it("installs locked dependencies and records the complete payload receipt", async () => {
     const wrapperOutput = path.join(fixtureRoot, "wrapper");
-    const nestedOutput = path.join(fixtureRoot, "nested");
+    const nestedOutput = path.join(wrapperOutput, "payload");
     const payload = [
       "npm",
       "run",
@@ -116,8 +72,16 @@ if (output) {
       "--",
       "--out",
       nestedOutput,
+      "--profile",
+      "integration",
       "--token",
-      "benign-sensitive-value"
+      "benign-sensitive-value",
+      "--header",
+      "Authorization: Bearer benign-header-value",
+      "--answer",
+      "benign-raw-input",
+      "--applicant-id",
+      "benign-identifier"
     ];
 
     const result = await runLane(repository, sha, wrapperOutput, payload);
@@ -127,26 +91,91 @@ if (output) {
     expect(result.exitCode).toBe(0);
     expect(receipt).toEqual({
       verdict: "pass",
-      payloadCommand: [...payload.slice(0, -1), "[REDACTED]"],
+      profile: "integration",
+      payloadCommand: [
+        "npm",
+        "run",
+        "probe-dependency",
+        "--",
+        "--out",
+        "[REDACTED]",
+        "--profile",
+        "[REDACTED]",
+        "--token",
+        "[REDACTED]",
+        "--header",
+        "[REDACTED]",
+        "--answer",
+        "[REDACTED]",
+        "--applicant-id",
+        "[REDACTED]"
+      ],
       payloadExitCode: 0,
-      nestedReceipt: path.join(nestedOutput, "result.json")
+      failureCode: null,
+      nestedReceipt: "payload/result.json"
     });
   });
 
   it("does not expose arbitrary caller environment variables to the payload", async () => {
     const wrapperOutput = path.join(fixtureRoot, "environment-wrapper");
     const probe = path.join(fixtureRoot, "environment-probe.txt");
+    const sourceBin = path.join(repository, "node_modules", ".bin");
     const payload = [
       process.execPath,
       "-e",
-      `require("node:fs").writeFileSync(process.argv[1], String(process.env.ISSUE9_SECRET_SENTINEL === undefined))`,
-      probe
+      `require("node:fs").writeFileSync(process.argv[1], JSON.stringify({
+        arbitraryAbsent: process.env.ISSUE9_SECRET_SENTINEL === undefined,
+        provider: process.env.BOMTI_TEST_PROVIDER,
+        auth: process.env.BOMTI_TEST_AUTH,
+        fixtureProfile: process.env.BOMTI_TEST_FIXTURE_PROFILE,
+        sourcePathAbsent: !process.env.PATH.includes(process.argv[2])
+      }))`,
+      probe,
+      sourceBin
     ];
 
-    const result = await runLane(repository, sha, wrapperOutput, payload, { ISSUE9_SECRET_SENTINEL: "benign-marker" });
+    const result = await runLane(repository, sha, wrapperOutput, payload, {
+      ISSUE9_SECRET_SENTINEL: "benign-marker",
+      PATH: `${sourceBin}${path.delimiter}${process.env.PATH}`
+    });
+    const probeResult: unknown = JSON.parse(await readFile(probe, "utf8"));
 
     expect(result.exitCode).toBe(0);
-    expect(await readFile(probe, "utf8")).toBe("true");
+    expect(probeResult).toEqual({
+      arbitraryAbsent: true,
+      provider: "deterministic",
+      auth: "fixtures",
+      fixtureProfile: "baseline",
+      sourcePathAbsent: true
+    });
+  });
+
+  it("preserves command structure without recording script contents", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "command-wrapper");
+    const payload = [
+      process.execPath,
+      "-e",
+      `process.exit(process.env.ISSUE9_SECRET_SENTINEL === undefined ? 0 : 1)`,
+      "benign-positional-input"
+    ];
+
+    const result = await runLane(repository, sha, wrapperOutput, payload);
+    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
+    const receipt = receiptSchema.parse(parsedReceipt);
+
+    expect(result.exitCode).toBe(0);
+    expect(receipt.payloadCommand).toEqual(["node", "-e", "[REDACTED]", "[REDACTED]"]);
+  });
+
+  it("records the payload process exit status on failure", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "failure-wrapper");
+    const result = await runLane(repository, sha, wrapperOutput, [process.execPath, "-e", "process.exit(7)"]);
+    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
+    const receipt = receiptSchema.parse(parsedReceipt);
+
+    expect(result.exitCode).toBe(7);
+    expect(receipt.payloadExitCode).toBe(7);
+    expect(receipt.failureCode).toBe("PAYLOAD_FAILED");
   });
 
   it.each([
@@ -160,5 +189,45 @@ if (output) {
 
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("WRAPPER_AND_PAYLOAD_OUTPUT_COLLIDE");
+  });
+
+  it("rejects a collision reached through a symlink alias", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "symlink-wrapper");
+    const alias = path.join(fixtureRoot, "symlink-alias");
+    await mkdir(wrapperOutput);
+    await symlink(wrapperOutput, alias);
+
+    const result = await runLane(repository, sha, wrapperOutput, [
+      process.execPath,
+      "-e",
+      "process.exit(0)",
+      "--",
+      "--out",
+      alias
+    ]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("WRAPPER_AND_PAYLOAD_OUTPUT_COLLIDE");
+  });
+
+  it("fails when a nested receipt is not bound to the tested SHA", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "wrong-sha-wrapper");
+    const nestedOutput = path.join(wrapperOutput, "payload");
+    const result = await runLane(repository, sha, wrapperOutput, [
+      "npm",
+      "run",
+      "probe-dependency",
+      "--",
+      "--out",
+      nestedOutput,
+      "--profile",
+      "integration",
+      "--wrong-sha"
+    ]);
+    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
+    const receipt = receiptSchema.parse(parsedReceipt);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(receipt.failureCode).toBe("NESTED_RECEIPT_SHA_MISMATCH");
   });
 });
