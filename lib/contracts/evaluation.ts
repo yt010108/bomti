@@ -3,12 +3,50 @@ import { codePointLength, normalizeText, segmentAnswer } from "./text";
 
 export type EvaluationAudience = "guest" | "authenticated";
 
+export type EvaluationInputErrorCode =
+  | "INPUT_INVALID"
+  | "QUESTION_TOO_SHORT"
+  | "QUESTION_TOO_LONG"
+  | "ANSWER_TOO_SHORT"
+  | "ANSWER_TOO_LONG"
+  | "TARGETROLE_TOO_SHORT"
+  | "TARGETROLE_TOO_LONG"
+  | "JOBCOMPANYCONTEXT_TOO_SHORT"
+  | "JOBCOMPANYCONTEXT_TOO_LONG"
+  | "EXPERIENCEEVIDENCE_TOO_SHORT"
+  | "EXPERIENCEEVIDENCE_TOO_LONG";
+
+type FieldBound = {
+  readonly minimum: number;
+  readonly maximum: number;
+  readonly tooShort: EvaluationInputErrorCode;
+  readonly tooLong: EvaluationInputErrorCode;
+};
+
 const bounds = {
-  question: [1, 1200],
-  targetRole: [1, 120],
-  jobCompanyContext: [1, 5000],
-  experienceEvidence: [0, 6000]
-} as const;
+  question: { minimum: 1, maximum: 1200, tooShort: "QUESTION_TOO_SHORT", tooLong: "QUESTION_TOO_LONG" },
+  targetRole: { minimum: 1, maximum: 120, tooShort: "TARGETROLE_TOO_SHORT", tooLong: "TARGETROLE_TOO_LONG" },
+  jobCompanyContext: {
+    minimum: 1,
+    maximum: 5000,
+    tooShort: "JOBCOMPANYCONTEXT_TOO_SHORT",
+    tooLong: "JOBCOMPANYCONTEXT_TOO_LONG"
+  },
+  experienceEvidence: {
+    minimum: 0,
+    maximum: 6000,
+    tooShort: "EXPERIENCEEVIDENCE_TOO_SHORT",
+    tooLong: "EXPERIENCEEVIDENCE_TOO_LONG"
+  }
+} as const satisfies Record<Exclude<keyof EvaluationInput, "answer">, FieldBound>;
+
+export class EvaluationInputError extends Error {
+  readonly name = "EvaluationInputError";
+
+  constructor(readonly code: EvaluationInputErrorCode) {
+    super(code);
+  }
+}
 
 export const rawEvaluationInputSchema = z
   .object({
@@ -22,14 +60,14 @@ export const rawEvaluationInputSchema = z
 
 export type EvaluationInput = z.infer<typeof rawEvaluationInputSchema>;
 
-export type ValidatedEvaluationInput = EvaluationInput & {
-  answerSegments: ReturnType<typeof segmentAnswer>;
+export type ValidatedEvaluationInput = Readonly<EvaluationInput> & {
+  readonly answerSegments: ReturnType<typeof segmentAnswer>;
 };
 
-function fieldIssue(field: keyof EvaluationInput, value: string, min: number, max: number) {
+function fieldIssue(value: string, bound: FieldBound): EvaluationInputErrorCode | null {
   const length = codePointLength(value);
-  if (length < min) return `${field.toUpperCase()}_TOO_SHORT`;
-  if (length > max) return `${field.toUpperCase()}_TOO_LONG`;
+  if (length < bound.minimum) return bound.tooShort;
+  if (length > bound.maximum) return bound.tooLong;
   return null;
 }
 
@@ -38,7 +76,7 @@ export function validateEvaluationInput(
   audience: EvaluationAudience
 ): ValidatedEvaluationInput {
   const parsed = rawEvaluationInputSchema.safeParse(source);
-  if (!parsed.success) throw new Error("INPUT_INVALID");
+  if (!parsed.success) throw new EvaluationInputError("INPUT_INVALID");
 
   const input = {
     question: normalizeText(parsed.data.question),
@@ -49,16 +87,22 @@ export function validateEvaluationInput(
   };
 
   const answerMax = audience === "guest" ? 1500 : 6000;
+  const answerBound: FieldBound = {
+    minimum: 1,
+    maximum: answerMax,
+    tooShort: "ANSWER_TOO_SHORT",
+    tooLong: "ANSWER_TOO_LONG"
+  };
   const issue = [
-    fieldIssue("question", input.question, ...bounds.question),
-    fieldIssue("answer", input.answer, 1, answerMax),
-    fieldIssue("targetRole", input.targetRole, ...bounds.targetRole),
-    fieldIssue("jobCompanyContext", input.jobCompanyContext, ...bounds.jobCompanyContext),
-    fieldIssue("experienceEvidence", input.experienceEvidence ?? "", ...bounds.experienceEvidence)
-  ].find((candidate): candidate is string => candidate !== null);
-  if (issue) throw new Error(issue);
+    fieldIssue(input.question, bounds.question),
+    fieldIssue(input.answer, answerBound),
+    fieldIssue(input.targetRole, bounds.targetRole),
+    fieldIssue(input.jobCompanyContext, bounds.jobCompanyContext),
+    fieldIssue(input.experienceEvidence ?? "", bounds.experienceEvidence)
+  ].find((candidate): candidate is EvaluationInputErrorCode => candidate !== null);
+  if (issue) throw new EvaluationInputError(issue);
 
   const answerSegments = segmentAnswer(input.answer);
-  if (!answerSegments.length) throw new Error("ANSWER_TOO_SHORT");
+  if (!answerSegments.length) throw new EvaluationInputError("ANSWER_TOO_SHORT");
   return { ...input, answerSegments };
 }

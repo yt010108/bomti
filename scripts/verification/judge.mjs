@@ -5,10 +5,19 @@ import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/recei
 const execFileAsync = promisify(execFile);
 
 async function runJudgeContracts() {
-  await execFileAsync(process.execPath, ["./node_modules/vitest/vitest.mjs", "run", "tests/judge-contract.test.ts"], {
-    cwd: process.cwd(),
-    encoding: "utf8"
-  });
+  await execFileAsync(
+    process.execPath,
+    [
+      "./node_modules/vitest/vitest.mjs",
+      "run",
+      "tests/judge-contract.characterization.test.ts",
+      "tests/judge-contract.test.ts",
+      "tests/judge-contract-boundaries.test.ts",
+      "tests/judge-contract-verdict.test.ts",
+      "tests/judge-contract-sol.test.ts"
+    ],
+    { cwd: process.cwd(), encoding: "utf8" }
+  );
 }
 
 async function main() {
@@ -23,7 +32,11 @@ async function main() {
       profile: flags.profile,
       sha: flags.sha,
       code: "PROVIDER_OUTPUT_INVALID",
-      assertions: ["score range rejected", "unsafe extra field rejected", "unknown segment rejected"]
+      assertions: [
+        "malformed and unexpected nested keys rejected",
+        "normalized duplicates rejected",
+        "missing duplicate and contradictory Sol decisions rejected"
+      ]
     });
     throw new Error("PROVIDER_OUTPUT_INVALID");
   }
@@ -36,7 +49,11 @@ async function main() {
     contractVersion: "bomti_index_v1",
     dimensions: 5,
     guestEvidenceLimit: 3,
-    assertions: ["Korean contract fixture passed", "segment IDs validated", "guest projection bounded"]
+    assertions: [
+      "Korean English and emoji fixtures passed",
+      "NFC Unicode code-point and segment ceilings passed",
+      "exact provenance descriptor and Sol merge contracts passed"
+    ]
   });
 }
 
