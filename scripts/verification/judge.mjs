@@ -9,7 +9,16 @@ const futureProfiles = new Set(["no-escalation-and-sol", "resume-after-terra-sol
 async function runJudgeContracts(profile) {
   await execFileAsync(
     process.execPath,
-    ["./node_modules/vitest/vitest.mjs", "run", "tests/judge-contract.test.ts", "tests/judge-runner-profile.test.ts"],
+    [
+      "./node_modules/vitest/vitest.mjs",
+      "run",
+      "tests/judge-contract.characterization.test.ts",
+      "tests/judge-contract.test.ts",
+      "tests/judge-contract-boundaries.test.ts",
+      "tests/judge-contract-verdict.test.ts",
+      "tests/judge-contract-sol.test.ts",
+      "tests/judge-runner-profile.test.ts"
+    ],
     {
       cwd: process.cwd(),
       encoding: "utf8",
@@ -47,7 +56,10 @@ async function main() {
         "named malformed fixture executed",
         "score range rejected",
         "unsafe provider text rejected",
-        "unknown segment rejected"
+        "unknown segment rejected",
+        "malformed and unexpected nested keys rejected",
+        "normalized duplicates rejected",
+        "missing duplicate and contradictory Sol decisions rejected"
       ]
     });
     throw new Error("PROVIDER_OUTPUT_INVALID");
@@ -65,7 +77,10 @@ async function main() {
       "named contract fixture executed",
       "Korean contract fixture passed",
       "segment IDs validated",
-      "guest projection bounded"
+      "guest projection bounded",
+      "Korean English and emoji fixtures passed",
+      "NFC Unicode code-point and segment ceilings passed",
+      "exact provenance descriptor and Sol merge contracts passed"
     ]
   });
 }
