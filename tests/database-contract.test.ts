@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceDeletionJob,
+  createDeletionLifecycleFixture,
   createDatabaseFixture,
+  databaseSql,
   databaseEnvironment,
   deleteAuthUser,
+  installDeletionFailureTrigger,
   purgeAccountData,
+  removeDeletionFailureTrigger,
   rest,
+  rpc,
   signInAfterDeletion
 } from "./fixtures/database";
 
@@ -71,6 +77,161 @@ profileSuite(["ownership-delete-benchmark"], "owner history and account cleanup"
     expect(survivingBenchmark.body).toEqual([{ record_id: fixture.benchmark.record_id }]);
     expect(deletedUserSignIn.response.ok).toBe(false);
   });
+});
+
+profileSuite(["deletion-cost-lifecycle"], "account deletion and cost settlement lifecycle", () => {
+  it("rejects illegal transitions and retries every failure-injected transition without restoring data or double settling cost", async () => {
+    const fixture = await createDeletionLifecycleFixture(databaseEnvironment());
+    const jobId = fixture.deletionJob.id;
+
+    await expect(
+      databaseSql(`
+        insert into public.account_deletion_jobs (
+          subject_hmac, encrypted_auth_user_id, state, block_until
+        ) values (
+          '${"i".repeat(64)}', decode('010203', 'hex'), 'sessions_revoked', now() + interval '1 hour'
+        );
+      `)
+    ).rejects.toThrow();
+    await expect(
+      databaseSql(`update public.account_deletion_jobs set state = 'complete' where id = '${jobId}'::uuid;`)
+    ).rejects.toThrow();
+
+    const transitions = [
+      { current: "requested", desired: "sessions_revoked", ownerId: null },
+      { current: "sessions_revoked", desired: "app_data_deleted", ownerId: fixture.userA.id },
+      { current: "app_data_deleted", desired: "auth_user_deleted", ownerId: fixture.userA.id },
+      { current: "auth_user_deleted", desired: "complete", ownerId: null }
+    ] as const;
+
+    for (const transition of transitions) {
+      if (transition.current === "app_data_deleted") await deleteAuthUser(fixture);
+
+      await installDeletionFailureTrigger(jobId, transition.desired);
+      const injectedFailure = await advanceDeletionJob(fixture, transition.current, transition.ownerId);
+      expect(injectedFailure.response.status).toBe(400);
+      await removeDeletionFailureTrigger();
+
+      const rolledBack = await rest(fixture.environment, fixture.environment.serviceRoleKey, "account_deletion_jobs", {
+        query: `?select=id,state,subject_hmac,encrypted_auth_user_id,attempts&id=eq.${jobId}`
+      });
+      expect(rolledBack.body).toHaveLength(1);
+      expect(rolledBack.body[0].state).toBe(transition.current);
+
+      if (transition.current === "sessions_revoked") {
+        const evaluationBeforeRetry = await rest(
+          fixture.environment,
+          fixture.environment.serviceRoleKey,
+          "evaluations",
+          { query: `?select=id&id=eq.${fixture.evaluationA.id}` }
+        );
+        const ledgerBeforeRetry = await rest(
+          fixture.environment,
+          fixture.environment.serviceRoleKey,
+          "budget_ledger",
+          { query: `?select=reserved_micros,accepted_micros&pricing_version=eq.${fixture.pricingVersion}` }
+        );
+        expect(evaluationBeforeRetry.body).toEqual([{ id: fixture.evaluationA.id }]);
+        expect(ledgerBeforeRetry.body).toEqual([{ reserved_micros: 1000, accepted_micros: 0 }]);
+      }
+
+      const advanced = await advanceDeletionJob(fixture, transition.current, transition.ownerId);
+      expect(advanced.response.status).toBe(200);
+      expect(advanced.body).toBe(transition.desired);
+
+      const idempotentRetry = await advanceDeletionJob(fixture, transition.current, transition.ownerId);
+      expect(idempotentRetry.response.status).toBe(200);
+      expect(idempotentRetry.body).toBe(transition.desired);
+
+      const advancedJob = await rest(fixture.environment, fixture.environment.serviceRoleKey, "account_deletion_jobs", {
+        query: `?select=state,subject_hmac,encrypted_auth_user_id,attempts&id=eq.${jobId}`
+      });
+      expect(advancedJob.body).toHaveLength(1);
+      if (transition.desired === "auth_user_deleted") {
+        expect(advancedJob.body[0].encrypted_auth_user_id).toBeNull();
+        expect(advancedJob.body[0].subject_hmac).toBe(fixture.subjectHmac);
+      }
+      if (transition.desired === "complete") {
+        expect(advancedJob.body[0].encrypted_auth_user_id).toBeNull();
+        expect(advancedJob.body[0].subject_hmac).toBeNull();
+      }
+
+      if (transition.desired === "sessions_revoked") {
+        await expect(
+          databaseSql(`update public.account_deletion_jobs set state = 'requested' where id = '${jobId}'::uuid;`)
+        ).rejects.toThrow();
+        await expect(
+          databaseSql(`update public.account_deletion_jobs set state = 'auth_user_deleted' where id = '${jobId}'::uuid;`)
+        ).rejects.toThrow();
+        await expect(
+          databaseSql(`
+            update public.account_deletion_jobs
+            set subject_hmac = '${"n".repeat(64)}'
+            where id = '${jobId}'::uuid;
+          `)
+        ).rejects.toThrow();
+      }
+    }
+
+    const remainingLinkableRows = await Promise.all([
+      rest(fixture.environment, fixture.environment.serviceRoleKey, "evaluations", {
+        query: `?select=id&owner_id=eq.${fixture.userA.id}`
+      }),
+      rest(fixture.environment, fixture.environment.serviceRoleKey, "consent_records", {
+        query: `?select=id&owner_id=eq.${fixture.userA.id}`
+      }),
+      rest(fixture.environment, fixture.environment.serviceRoleKey, "usage_counters", {
+        query: `?select=id&subject_kind=eq.account&subject_hmac=eq.${fixture.subjectHmac}`
+      })
+    ]);
+    for (const result of remainingLinkableRows) expect(result.body).toEqual([]);
+
+    const ledger = await rest(fixture.environment, fixture.environment.serviceRoleKey, "budget_ledger", {
+      query: `?select=provider_id,model_id,utc_month,pricing_version,reserved_micros,accepted_micros&provider_id=eq.${fixture.providerId}`
+    });
+    expect(ledger.body).toEqual([
+      {
+        provider_id: fixture.providerId,
+        model_id: fixture.modelId,
+        utc_month: fixture.utcMonth,
+        pricing_version: fixture.pricingVersion,
+        reserved_micros: 0,
+        accepted_micros: 400
+      }
+    ]);
+    const syntheticPricing = await rest(fixture.environment, fixture.environment.serviceRoleKey, "budget_ledger", {
+      query: "?select=pricing_version&pricing_version=eq.settled-on-delete"
+    });
+    const reconciliation = await rest(
+      fixture.environment,
+      fixture.environment.serviceRoleKey,
+      "provider_reconciliation",
+      { query: `?select=id&id=eq.${fixture.runId}` }
+    );
+    expect(syntheticPricing.body).toEqual([]);
+    expect(reconciliation.body).toEqual([]);
+
+    const terminalJob = await rest(fixture.environment, fixture.environment.serviceRoleKey, "account_deletion_jobs", {
+      query: `?select=state,subject_hmac,encrypted_auth_user_id,attempts,block_until&id=eq.${jobId}`
+    });
+    expect(terminalJob.body).toHaveLength(1);
+    expect(terminalJob.body[0]).toMatchObject({
+      state: "complete",
+      subject_hmac: null,
+      encrypted_auth_user_id: null,
+      attempts: 4
+    });
+
+    const waitForTtl = Math.max(0, Date.parse(fixture.blockUntil) - Date.now() + 100);
+    await new Promise((resolve) => setTimeout(resolve, waitForTtl));
+    const cleanup = await rpc(fixture.environment, "purge_expired_account_deletion_jobs");
+    expect(cleanup.response.status).toBe(200);
+    expect(cleanup.body).toBe(1);
+    const removedJob = await rest(fixture.environment, fixture.environment.serviceRoleKey, "account_deletion_jobs", {
+      query: `?select=id&id=eq.${jobId}`
+    });
+    expect(removedJob.body).toEqual([]);
+  }, 60_000);
 });
 
 profileSuite(["cross-tenant-denied"], "RLS tenant and browser isolation", () => {

@@ -1,5 +1,16 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 const fixturePassword = "fixture-password-not-for-production";
 const fixtureHmac = "f".repeat(64);
+const fixtureRunId = "22222222-2222-4222-8222-222222222222";
+const fixtureProvider = "fixture-provider";
+const fixtureModel = "fixture-model";
+const fixturePricingVersion = "fixture-pricing-v1";
 
 function apiHeaders(key, token = key) {
   return {
@@ -39,6 +50,37 @@ export async function rest(environment, token, table, options = {}) {
   });
 
   return { response, body: await json(response) };
+}
+
+export async function rpc(environment, name, body = {}) {
+  const response = await fetch(`${environment.restUrl}/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      ...apiHeaders(environment.anonKey, environment.serviceRoleKey),
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  return { response, body: await json(response) };
+}
+
+export async function databaseSql(statement) {
+  const directory = await mkdtemp(join(tmpdir(), "bomti-db-query-"));
+  const file = join(directory, "query.sql");
+  try {
+    await writeFile(file, statement, { encoding: "utf8", mode: 0o600 });
+    return await execFileAsync(
+      process.execPath,
+      ["node_modules/supabase/dist/supabase.js", "db", "query", "--local", "--file", file],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        maxBuffer: 10 * 1024 * 1024
+      }
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 async function createUser(environment, email) {
@@ -137,6 +179,121 @@ export async function createDatabaseFixture(environment = databaseEnvironment())
   }
 
   return { environment, userA, userB, evaluationA, evaluationB, benchmark: benchmark.body[0], subjectHmac: fixtureHmac };
+}
+
+export async function createDeletionLifecycleFixture(environment = databaseEnvironment()) {
+  const fixture = await createDatabaseFixture(environment);
+  const utcMonth = new Date().toISOString().slice(0, 7) + "-01";
+  const blockUntil = new Date(Date.now() + 2_000).toISOString();
+
+  const run = await rest(environment, environment.serviceRoleKey, "judge_runs", {
+    method: "POST",
+    body: {
+      id: fixtureRunId,
+      evaluation_id: fixture.evaluationA.id,
+      provider_role: "luna",
+      provider_id: fixtureProvider,
+      model_id: fixtureModel,
+      request_id_hash: "r".repeat(64),
+      input_tokens: 10,
+      output_tokens: 20,
+      accepted_cost_micros: 400,
+      status: "completed"
+    }
+  });
+  if (!run.response.ok) throw new Error(`JUDGE_RUN_FIXTURE_CREATE_FAILED:${run.response.status}`);
+
+  const ledger = await rest(environment, environment.serviceRoleKey, "budget_ledger", {
+    method: "POST",
+    body: {
+      provider_id: fixtureProvider,
+      model_id: fixtureModel,
+      utc_month: utcMonth,
+      pricing_version: fixturePricingVersion,
+      reserved_micros: 1_000,
+      accepted_micros: 0
+    }
+  });
+  if (!ledger.response.ok) throw new Error(`BUDGET_LEDGER_FIXTURE_CREATE_FAILED:${ledger.response.status}`);
+
+  const reconciliation = await rest(environment, environment.serviceRoleKey, "provider_reconciliation", {
+    method: "POST",
+    body: {
+      id: fixtureRunId,
+      provider_id: fixtureProvider,
+      model_id: fixtureModel,
+      pricing_version: fixturePricingVersion,
+      encrypted_client_correlation_id: "\\x010203",
+      utc_month: utcMonth,
+      reserved_micros: 1_000,
+      state: "unresolved_reserved",
+      accepted_cost_micros: 400
+    }
+  });
+  if (!reconciliation.response.ok) {
+    throw new Error(`RECONCILIATION_FIXTURE_CREATE_FAILED:${reconciliation.response.status}`);
+  }
+
+  const job = await rest(environment, environment.serviceRoleKey, "account_deletion_jobs", {
+    method: "POST",
+    body: {
+      subject_hmac: fixture.subjectHmac,
+      encrypted_auth_user_id: "\\x040506",
+      state: "requested",
+      block_until: blockUntil
+    }
+  });
+  if (!job.response.ok || !Array.isArray(job.body) || job.body.length !== 1) {
+    throw new Error(`DELETION_JOB_FIXTURE_CREATE_FAILED:${job.response.status}`);
+  }
+
+  return {
+    ...fixture,
+    deletionJob: job.body[0],
+    runId: fixtureRunId,
+    providerId: fixtureProvider,
+    modelId: fixtureModel,
+    pricingVersion: fixturePricingVersion,
+    utcMonth,
+    blockUntil
+  };
+}
+
+export async function advanceDeletionJob(fixture, expectedState, ownerId = null) {
+  return rpc(fixture.environment, "advance_account_deletion_job", {
+    target_job_id: fixture.deletionJob.id,
+    expected_state: expectedState,
+    target_owner_id: ownerId
+  });
+}
+
+export async function installDeletionFailureTrigger(jobId, state) {
+  await databaseSql(`
+    drop trigger if exists inject_account_deletion_transition_failure on public.account_deletion_jobs;
+  `);
+  await databaseSql(`
+    create or replace function public.inject_account_deletion_transition_failure()
+    returns trigger language plpgsql as $$
+    begin
+      if new.id = '${jobId}'::uuid and new.state = '${state}'::public.account_deletion_state then
+        raise exception 'INJECTED_ACCOUNT_DELETION_FAILURE';
+      end if;
+      return new;
+    end;
+    $$;
+  `);
+  await databaseSql(`
+    create trigger inject_account_deletion_transition_failure
+    after update on public.account_deletion_jobs
+    for each row execute function public.inject_account_deletion_transition_failure();
+  `);
+}
+
+export async function removeDeletionFailureTrigger() {
+  await databaseSql(`
+    drop trigger if exists inject_account_deletion_transition_failure on public.account_deletion_jobs;
+  `);
+  await databaseSql(`drop function if exists public.inject_account_deletion_transition_failure();`);
 }
 
 export async function purgeAccountData(fixture) {

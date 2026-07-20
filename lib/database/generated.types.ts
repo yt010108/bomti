@@ -18,7 +18,7 @@ export type Database = {
           id: string
           next_retry_at: string
           state: Database["public"]["Enums"]["account_deletion_state"]
-          subject_hmac: string
+          subject_hmac: string | null
         }
         Insert: {
           attempts?: number
@@ -28,7 +28,7 @@ export type Database = {
           id?: string
           next_retry_at?: string
           state: Database["public"]["Enums"]["account_deletion_state"]
-          subject_hmac: string
+          subject_hmac?: string | null
         }
         Update: {
           attempts?: number
@@ -38,7 +38,7 @@ export type Database = {
           id?: string
           next_retry_at?: string
           state?: Database["public"]["Enums"]["account_deletion_state"]
-          subject_hmac?: string
+          subject_hmac?: string | null
         }
         Relationships: []
       }
@@ -400,7 +400,7 @@ export type Database = {
           created_at?: string
           encrypted_client_correlation_id: string
           encrypted_request_id?: string | null
-          id?: string
+          id: string
           model_id: string
           pricing_version: string
           provider_id: string
@@ -430,7 +430,15 @@ export type Database = {
           state?: Database["public"]["Enums"]["reconciliation_state"]
           utc_month?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "provider_reconciliation_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "judge_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       usage_counters: {
         Row: {
@@ -505,10 +513,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_account_deletion_job: {
+        Args: {
+          expected_state: Database["public"]["Enums"]["account_deletion_state"]
+          target_job_id: string
+          target_owner_id?: string
+        }
+        Returns: Database["public"]["Enums"]["account_deletion_state"]
+      }
       purge_account_linkable_data: {
         Args: { target_owner_id: string; target_subject_hmac: string }
         Returns: undefined
       }
+      purge_expired_account_deletion_jobs: { Args: never; Returns: number }
     }
     Enums: {
       account_deletion_state:

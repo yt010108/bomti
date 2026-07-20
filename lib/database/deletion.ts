@@ -13,6 +13,7 @@ const nextState: Record<AccountDeletionState, AccountDeletionState | null> = {
 export type DeletionJobUpdate = {
   state: AccountDeletionState;
   encryptedAuthUserId: Uint8Array | null;
+  subjectHmac: string | null;
 };
 
 /**
@@ -22,16 +23,19 @@ export type DeletionJobUpdate = {
  */
 export function nextDeletionJobUpdate(
   current: AccountDeletionState,
-  encryptedAuthUserId: Uint8Array | null
+  encryptedAuthUserId: Uint8Array | null,
+  subjectHmac: string | null
 ): DeletionJobUpdate {
   const state = nextState[current];
   if (!state) throw new Error("ACCOUNT_DELETION_ALREADY_COMPLETE");
   if (current !== "auth_user_deleted" && encryptedAuthUserId === null) {
     throw new Error("ACCOUNT_DELETION_AUTH_CIPHERTEXT_REQUIRED");
   }
+  if (subjectHmac === null) throw new Error("ACCOUNT_DELETION_SUBJECT_MARKER_REQUIRED");
 
   return {
     state,
-    encryptedAuthUserId: state === "auth_user_deleted" || state === "complete" ? null : encryptedAuthUserId
+    encryptedAuthUserId: state === "auth_user_deleted" || state === "complete" ? null : encryptedAuthUserId,
+    subjectHmac: state === "complete" ? null : subjectHmac
   };
 }
