@@ -1,102 +1,36 @@
 # Bomti
 
-Bomti is a Korean work-agent evaluation platform that turns real task outputs into human preference data for training better AI agents.
+Bomti는 취업 준비생의 자기소개서 답변이 질문·직무·회사 또는 공고 맥락에 비해 얼마나 상투적이거나 과장됐는지 판단하는 한국어 웹 서비스다. 답변을 대신 작성하지 않고, 높은 점수일수록 더 밤티인 0–100 지수와 근거 문장·설명·개선 방향을 제공한다.
 
-## 한 줄 정의
+## 현재 구현 기준
 
-AI 에이전트용 시험장, 채점기, 선호 데이터 저장소.
+승인된 요구사항은 [요구사항 원장](docs/requirements.md)에, 변경 불가한 실행 제약은 [Handoff](Handoff.md)와 승인 계획에 있다. 지금은 계획 순서에 맞춰 로컬 검증 기반부터 구현 중이며, 실제 배포·Google OAuth 설정·유료 모델 호출·외부 데이터 import·push/PR은 별도 운영자 승인이 있어야만 실행한다.
 
-## 문제 정의
+## 사용자 경험
 
-AI 에이전트는 답변을 생성할 수 있지만, 실제 업무에서 얼마나 정확하고 실용적인지 검증하기 어렵다.  
-특히 한국어 업무형 리서치, 공공기관 취업 준비, 보안 리포트, 자기소개서 피드백처럼 근거와 맥락이 중요한 작업은 단순 정답 채점보다 루브릭 기반 평가가 필요하다.
+1. 사용자는 질문, 답변, 목표 직무, 회사/공고 맥락을 입력한다.
+2. 모든 필수 동의를 직접 선택한다.
+3. 입력은 문장 세그먼트화와 가명처리를 거친 뒤에만 모델로 전달된다.
+4. 결과는 Bomti 지수, 다섯 위험 차원, 문장 근거, 설명, 제한된 개선 방향을 보여 준다.
+5. 비로그인은 하루 한 번의 비영속 미리보기를 받고, Google 인증 사용자는 캠페인당 세 번의 상세 평가와 삭제 가능한 이력을 가진다.
 
-## 초기 도메인
+공개 서비스는 답변 하나를 평가한다. 답변 쌍 비교와 사람 평점은 익명 내부 벤치마크 보정에만 사용하며 공개 기능이나 관리자 대시보드가 아니다.
 
-첫 버전은 공공기관·IT·보안 취업 준비 업무를 수행하는 에이전트를 평가하는 데 집중한다.
+## 안전 경계
 
-예시 task:
+- 동의 → 세그먼트화·가명처리 → 모델 전송 순서를 바꾸지 않는다.
+- 원문은 로그, DB, 증거에 저장하지 않는다.
+- 공급자 장애·예산 부족·검증 실패 시 다른 유료 모델로 자동 대체하지 않는다.
+- 실제 공급자, OAuth, Supabase, Vercel의 변경은 운영자 입력과 명시적 승인이 있을 때만 가능하다.
 
-- KISA 정보보호 직무 면접 준비 리포트 작성
-- 채용공고에서 자격요건, 우대사항, NCS 추출
-- 프로젝트 경험을 자기소개서 STAR 소재로 변환
-- 기관 이슈 기반 예상 면접 질문 생성
-- 보안 리포트의 기술 정확성 평가
-
-## 핵심 흐름
-
-1. 사용자가 목표 기관, 목표 직무, 공고, 프로젝트 설명, 자기소개서 초안을 입력한다.
-2. 에이전트가 답변 후보를 생성한다.
-3. LLM judge가 루브릭 기준으로 답변을 평가한다.
-4. 사용자가 A/B 선택으로 더 좋은 답변을 고른다.
-5. 선택 결과와 평가 이유가 preference dataset으로 저장된다.
-6. 저장된 데이터는 향후 judge 개선, prompt 개선, 에이전트 학습 데이터로 활용된다.
-
-## 핵심 기능
-
-- Task 입력
-- Agent answer generation
-- Rubric-based LLM judge
-- Human A/B preference
-- Preference dataset 저장
-- JSONL export
-- 간단한 평가 대시보드
-
-## 첫 개발 우선순위
-
-1. Task 입력 폼
-2. 답변 후보 2개 생성
-3. judge 평가 JSON 생성
-4. A/B 선택 UI
-5. SQLite/Prisma 저장
-6. JSONL export
-7. 데모 task 20개 작성
-
-## 폴더 구조
-
-```text
-bomti/
-  README.md
-  docs/
-    product-plan.md
-    architecture.md
-    rubric.md
-    roadmap.md
-    demo-scenario.md
-  app/
-    api/
-      tasks/
-      judge/
-      preferences/
-  components/
-  lib/
-    agent/
-    judge/
-    dataset/
-  prisma/
-    schema.prisma
-  prompts/
-    agent-v1.md
-    judge-v1.md
-  data/
-    seed-tasks.json
-    exports/
-```
-
-## 로컬 실행 예정
+## 로컬 시작
 
 ```bash
-npm install
-npm run dev
+npm ci
+npm run typecheck
+npm run lint
+npm run test -- --run
+npm run build
 ```
 
-## GitHub 생성 후 push
-
-```bash
-git init
-git branch -M main
-git remote add origin https://github.com/yt010108/bomti.git
-git add .
-git commit -m "Initial Bomti project setup"
-git push -u origin main
-```
+세부 계약, 예정된 API/화면, 증거 규칙은 [docs/requirements.md](docs/requirements.md)를 따른다.

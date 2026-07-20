@@ -1,0 +1,11 @@
+project_id = "bomti"
+
+[api]
+enabled = true
+schemas = ["public"]
+
+[db]
+major_version = 17
+
+[analytics]
+enabled = false

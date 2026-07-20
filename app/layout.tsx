@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DevClientInstrumentation } from "./dev-client-instrumentation";
 
 export const metadata: Metadata = {
   title: "Bomti",
@@ -10,7 +11,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        {process.env.NODE_ENV === "development" ? <DevClientInstrumentation /> : null}
+        {children}
+      </body>
     </html>
   );
 }

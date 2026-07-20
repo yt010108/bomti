@@ -1,0 +1,53 @@
+{
+  "validSegmentIds": ["s0001"],
+  "candidate": {
+    "contractVersion": "bomti_index_v1",
+    "dimensions": {
+      "contextMismatch": {
+        "score": 40,
+        "explanation": "synthetic explanation",
+        "evidence": [],
+        "improvement": { "dimension": "contextMismatch", "direction": "add context", "example": "synthetic example" }
+      },
+      "genericityCliche": {
+        "score": 40,
+        "explanation": "synthetic explanation",
+        "evidence": [],
+        "improvement": { "dimension": "genericityCliche", "direction": "add detail", "example": "synthetic example" }
+      },
+      "credibilityRisk": {
+        "score": 40,
+        "explanation": "synthetic explanation",
+        "evidence": [],
+        "improvement": { "dimension": "credibilityRisk", "direction": "add evidence", "example": "synthetic example" }
+      },
+      "specificityGap": {
+        "score": 40,
+        "explanation": "synthetic explanation",
+        "evidence": [],
+        "improvement": { "dimension": "specificityGap", "direction": "add specifics", "example": "synthetic example" }
+      },
+      "toneReadabilityRisk": {
+        "score": 40,
+        "explanation": "synthetic explanation",
+        "evidence": [],
+        "improvement": { "dimension": "toneReadabilityRisk", "direction": "clarify tone", "example": "synthetic example" }
+      }
+    },
+    "holisticIndex": 44,
+    "explanation": "synthetic holistic explanation",
+    "evidence": [
+      { "segmentId": "s0001", "dimension": "genericityCliche", "summary": "synthetic evidence", "severity": 60 }
+    ],
+    "improvements": [
+      { "dimension": "genericityCliche", "direction": "add action", "example": "synthetic example" }
+    ],
+    "fragments": [],
+    "criticalFlags": []
+  },
+  "invalid": {
+    "holisticIndex": 130,
+    "explanation": "<script>synthetic</script>",
+    "segmentId": "s9999"
+  }
+}

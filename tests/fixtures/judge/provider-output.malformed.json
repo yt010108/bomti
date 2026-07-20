@@ -1,0 +1,19 @@
+{
+  "contractVersion": "bomti_index_v1",
+  "dimensions": {
+    "contextMismatch": {
+      "score": 34,
+      "explanation": "valid",
+      "evidence": [],
+      "improvement": { "dimension": "contextMismatch", "direction": "valid", "example": "valid" },
+      "unexpected": "nested"
+    }
+  },
+  "holisticIndex": 130,
+  "explanation": "<script>alert(1)</script>",
+  "evidence": [],
+  "improvements": [],
+  "fragments": [],
+  "criticalFlags": [],
+  "fullRewrite": "adversarial extra field"
+}

@@ -2,4 +2,13 @@ node_modules
 .next
 .env
 .env.local
+.env.*
+!.env.example
+!.env.test.example
+*.tsbuildinfo
+playwright-report
+test-results
+.omo/evidence
 data/exports/*.jsonl
+supabase/.branches/
+supabase/.temp/
