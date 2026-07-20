@@ -9,7 +9,10 @@ const profiles = new Set([
   "migration-reset-types",
   "ownership-delete-benchmark",
   "cross-tenant-denied",
-  "deletion-cost-lifecycle"
+  "deletion-cost-lifecycle",
+  "account-three-kst-rollover",
+  "twenty-concurrent-cookie-rotation",
+  "refund-ambiguous-acceptance-month-boundary"
 ]);
 const supabaseArguments = ["node_modules/supabase/dist/supabase.js"];
 const generatedTypesPath = "lib/database/generated.types.ts";
@@ -83,6 +86,31 @@ function assertionsForProfile(profile) {
       "every deletion transition rolls back after injected failure and succeeds exactly once on retry",
       "account data removal settles the original cost identity and releases its reservation exactly once",
       "auth ciphertext and terminal account identifiers are removed before TTL cleanup deletes the job"
+    );
+  }
+
+  if (profile === "account-three-kst-rollover") {
+    assertions.push(
+      "an authenticated campaign consumes exactly three allowances and rejects the fourth",
+      "guest IP and cookie buckets roll only at KST midnight",
+      "raw account IP and cookie values are never stored"
+    );
+  }
+
+  if (profile === "twenty-concurrent-cookie-rotation") {
+    assertions.push(
+      "twenty simultaneous guest attempts sharing an IP reserve at most one provider call",
+      "idempotency duplicates consume and call once without returning a verdict",
+      "current and previous cookie HMAC aliases cannot bypass the daily limit"
+    );
+  }
+
+  if (profile === "refund-ambiguous-acceptance-month-boundary") {
+    assertions.push(
+      "partial Luna Terra and Sol acceptance settles or releases each reservation exactly once",
+      "ambiguous accepted cost survives reservation TTL and alerts after seven days",
+      "late reconciliation releases the hold once while account allowance is refunded",
+      "UTC month boundaries isolate budget ledgers"
     );
   }
 
@@ -202,7 +230,9 @@ async function writeFailureReceipt(flags, error) {
   const failure = failureReceipts[code];
   await writeReceipt(flags.out, {
     verdict: failure.verdict,
-    runner: "live-supabase-rls",
+    runner: flags.profile.includes("rollover") || flags.profile.includes("concurrent") || flags.profile.includes("refund-")
+      ? "usage"
+      : "live-supabase-rls",
     profile: flags.profile,
     sha: flags.sha,
     code: failure.code,
@@ -225,7 +255,9 @@ async function main() {
 
   await writeReceipt(flags.out, {
     verdict: "pass",
-    runner: "live-supabase-rls",
+    runner: flags.profile.includes("rollover") || flags.profile.includes("concurrent") || flags.profile.includes("refund-")
+      ? "usage"
+      : "live-supabase-rls",
     profile: flags.profile,
     sha: flags.sha,
     code: flags.profile === "cross-tenant-denied" ? "RLS_CROSS_TENANT_DENIED_AND_NEGATIVE_CONTROL_FAILED" : "LIVE_DATABASE_VERIFIED",

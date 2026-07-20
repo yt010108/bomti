@@ -250,6 +250,107 @@ export type Database = {
           },
         ]
       }
+      cost_reservations: {
+        Row: {
+          accepted_micros: number | null
+          alerted_at: string | null
+          created_at: string
+          encrypted_request_id: string | null
+          id: string
+          model_id: string
+          pricing_version: string
+          provider_id: string
+          provider_role: Database["public"]["Enums"]["provider_role"]
+          reservation_id: string
+          reserved_micros: number
+          settled_at: string | null
+          state: Database["public"]["Enums"]["cost_reservation_state"]
+          utc_month: string
+        }
+        Insert: {
+          accepted_micros?: number | null
+          alerted_at?: string | null
+          created_at?: string
+          encrypted_request_id?: string | null
+          id?: string
+          model_id: string
+          pricing_version: string
+          provider_id: string
+          provider_role: Database["public"]["Enums"]["provider_role"]
+          reservation_id: string
+          reserved_micros: number
+          settled_at?: string | null
+          state?: Database["public"]["Enums"]["cost_reservation_state"]
+          utc_month: string
+        }
+        Update: {
+          accepted_micros?: number | null
+          alerted_at?: string | null
+          created_at?: string
+          encrypted_request_id?: string | null
+          id?: string
+          model_id?: string
+          pricing_version?: string
+          provider_id?: string
+          provider_role?: Database["public"]["Enums"]["provider_role"]
+          reservation_id?: string
+          reserved_micros?: number
+          settled_at?: string | null
+          state?: Database["public"]["Enums"]["cost_reservation_state"]
+          utc_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_reservations_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_usage_reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evaluation_usage_reservations: {
+        Row: {
+          account_hmac: string | null
+          audience: string
+          campaign_id: string
+          created_at: string
+          id: string
+          idempotency_hash: string
+          request_fingerprint: string | null
+          reservation_expires_at: string
+          state: Database["public"]["Enums"]["evaluation_reservation_state"]
+          terminal_outcome: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_hmac?: string | null
+          audience: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          idempotency_hash: string
+          request_fingerprint?: string | null
+          reservation_expires_at: string
+          state?: Database["public"]["Enums"]["evaluation_reservation_state"]
+          terminal_outcome?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_hmac?: string | null
+          audience?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          idempotency_hash?: string
+          request_fingerprint?: string | null
+          reservation_expires_at?: string
+          state?: Database["public"]["Enums"]["evaluation_reservation_state"]
+          terminal_outcome?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       evaluations: {
         Row: {
           anonymization_version: string
@@ -476,6 +577,68 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_reservation_buckets: {
+        Row: {
+          campaign_or_bucket: string
+          canonical_hmac: string
+          created_at: string
+          reservation_id: string
+          state: Database["public"]["Enums"]["usage_state"]
+          subject_kind: Database["public"]["Enums"]["usage_subject_kind"]
+          updated_at: string
+        }
+        Insert: {
+          campaign_or_bucket: string
+          canonical_hmac: string
+          created_at?: string
+          reservation_id: string
+          state?: Database["public"]["Enums"]["usage_state"]
+          subject_kind: Database["public"]["Enums"]["usage_subject_kind"]
+          updated_at?: string
+        }
+        Update: {
+          campaign_or_bucket?: string
+          canonical_hmac?: string
+          created_at?: string
+          reservation_id?: string
+          state?: Database["public"]["Enums"]["usage_state"]
+          subject_kind?: Database["public"]["Enums"]["usage_subject_kind"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_reservation_buckets_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_usage_reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_subject_aliases: {
+        Row: {
+          alias_hmac: string
+          canonical_hmac: string
+          created_at: string
+          last_seen_at: string
+          subject_kind: Database["public"]["Enums"]["usage_subject_kind"]
+        }
+        Insert: {
+          alias_hmac: string
+          canonical_hmac: string
+          created_at?: string
+          last_seen_at?: string
+          subject_kind: Database["public"]["Enums"]["usage_subject_kind"]
+        }
+        Update: {
+          alias_hmac?: string
+          canonical_hmac?: string
+          created_at?: string
+          last_seen_at?: string
+          subject_kind?: Database["public"]["Enums"]["usage_subject_kind"]
+        }
+        Relationships: []
+      }
       usefulness_feedback: {
         Row: {
           created_at: string
@@ -521,11 +684,88 @@ export type Database = {
         }
         Returns: Database["public"]["Enums"]["account_deletion_state"]
       }
+      expire_stale_evaluation_reservations: {
+        Args: { target_now: string }
+        Returns: number
+      }
+      finalize_evaluation_allowance: {
+        Args: {
+          target_cost_results: Json
+          target_idempotency_hash: string
+          target_now: string
+          target_outcome: string
+        }
+        Returns: Database["public"]["Enums"]["evaluation_reservation_state"]
+      }
+      mark_ambiguous_cost_alerts: {
+        Args: { target_now: string }
+        Returns: number
+      }
       purge_account_linkable_data: {
         Args: { target_owner_id: string; target_subject_hmac: string }
         Returns: undefined
       }
       purge_expired_account_deletion_jobs: { Args: never; Returns: number }
+      purge_expired_guest_usage: {
+        Args: { target_now: string }
+        Returns: number
+      }
+      release_usage_bucket: {
+        Args: {
+          target_bucket: string
+          target_kind: Database["public"]["Enums"]["usage_subject_kind"]
+          target_reservation_id: string
+          target_state: Database["public"]["Enums"]["usage_state"]
+        }
+        Returns: boolean
+      }
+      reserve_evaluation_allowance: {
+        Args: {
+          target_account_hmac: string
+          target_audience: string
+          target_campaign_id: string
+          target_cookie_current_hmac: string
+          target_cookie_previous_hmac: string
+          target_guest_global_limit: number
+          target_idempotency_hash: string
+          target_ip_current_hmac: string
+          target_ip_previous_hmac: string
+          target_monthly_budget_micros: number
+          target_now: string
+          target_provider_costs: Json
+          target_request_fingerprint: string
+          target_sol_daily_limit: number
+        }
+        Returns: Json
+      }
+      reserve_usage_bucket: {
+        Args: {
+          current_hmac: string
+          previous_hmac: string
+          target_bucket: string
+          target_kind: Database["public"]["Enums"]["usage_subject_kind"]
+          target_limit: number
+          target_reservation_id: string
+        }
+        Returns: boolean
+      }
+      resolve_ambiguous_cost: {
+        Args: {
+          target_accepted_micros: number
+          target_cost_id: string
+          target_now: string
+          target_resolution: string
+        }
+        Returns: Database["public"]["Enums"]["cost_reservation_state"]
+      }
+      resolve_usage_subject: {
+        Args: {
+          current_hmac: string
+          previous_hmac?: string
+          target_kind: Database["public"]["Enums"]["usage_subject_kind"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       account_deletion_state:
@@ -536,6 +776,19 @@ export type Database = {
         | "complete"
       benchmark_choice: "left" | "right" | "tie" | "abstain"
       benchmark_provenance_class: "synthetic" | "luna_terra" | "luna_terra_sol"
+      cost_reservation_state:
+        | "reserved"
+        | "accepted_settled"
+        | "rejected_released"
+        | "ambiguous_held"
+      evaluation_reservation_state:
+        | "reserved"
+        | "completed"
+        | "refunded"
+        | "ambiguous"
+        | "failed_needs_adjudication"
+        | "provider_output_invalid"
+        | "expired"
       evaluation_status:
         | "reserved"
         | "in_flight_before_acceptance"
@@ -740,6 +993,21 @@ export const Constants = {
       ],
       benchmark_choice: ["left", "right", "tie", "abstain"],
       benchmark_provenance_class: ["synthetic", "luna_terra", "luna_terra_sol"],
+      cost_reservation_state: [
+        "reserved",
+        "accepted_settled",
+        "rejected_released",
+        "ambiguous_held",
+      ],
+      evaluation_reservation_state: [
+        "reserved",
+        "completed",
+        "refunded",
+        "ambiguous",
+        "failed_needs_adjudication",
+        "provider_output_invalid",
+        "expired",
+      ],
       evaluation_status: [
         "reserved",
         "in_flight_before_acceptance",
