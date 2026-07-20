@@ -8,6 +8,16 @@ const execFileAsync = promisify(execFile);
 const profiles = new Set(["migration-reset-types", "ownership-delete-benchmark", "cross-tenant-denied"]);
 const supabaseArguments = ["node_modules/supabase/dist/supabase.js"];
 const generatedTypesPath = "lib/database/generated.types.ts";
+const failureReceipts = {
+  DATABASE_UNAVAILABLE: { code: "DATABASE_UNAVAILABLE", verdict: "blocked" },
+  GENERATED_TYPES_STALE: { code: "GENERATED_TYPES_STALE", verdict: "fail" },
+  RLS_NEGATIVE_CONTROL_DID_NOT_FAIL: { code: "RLS_NEGATIVE_CONTROL_DID_NOT_FAIL", verdict: "fail" },
+  RLS_NEGATIVE_CONTROL_UNEXPECTED_FAILURE: {
+    code: "RLS_NEGATIVE_CONTROL_UNEXPECTED_FAILURE",
+    verdict: "fail"
+  },
+  DATABASE_INTEGRATION_FAILED: { code: "DATABASE_INTEGRATION_FAILED", verdict: "fail" }
+};
 
 function command(commandArguments, options = {}) {
   return execFileAsync(process.execPath, commandArguments, {
@@ -175,12 +185,13 @@ async function verifyProfile(profile) {
 
 async function writeFailureReceipt(flags, error) {
   const code = safeFailureCode(error);
+  const failure = failureReceipts[code];
   await writeReceipt(flags.out, {
-    verdict: code === "DATABASE_UNAVAILABLE" ? "blocked" : "fail",
+    verdict: failure.verdict,
     runner: "live-supabase-rls",
     profile: flags.profile,
     sha: flags.sha,
-    code: code,
+    code: failure.code,
     databaseMode: "local-supabase-postgres",
     assertions: ["database integration never reports PASS when local Supabase/Postgres is unavailable or invalid"]
   });
