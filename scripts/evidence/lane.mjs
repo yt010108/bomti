@@ -6,6 +6,23 @@ import { promisify } from "node:util";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "./receipt.mjs";
 
 const execFileAsync = promisify(execFile);
+const redactedValue = "[REDACTED]";
+const safeEnvironmentNames = [
+  "CI",
+  "ComSpec",
+  "FORCE_COLOR",
+  "LANG",
+  "LC_ALL",
+  "NO_COLOR",
+  "PATH",
+  "PATHEXT",
+  "SystemRoot",
+  "TERM",
+  "TZ",
+  "WINDIR"
+];
+const sensitiveArgumentPattern =
+  /(?:^|[-_])(?:api[-_]?key|authorization|cookie|password|secret|service[-_]?role[-_]?key|token)(?:$|[-_])/i;
 
 async function git(args, options = {}) {
   return execFileAsync("git", args, { encoding: "utf8", ...options });
@@ -19,6 +36,55 @@ async function statusAt(directory) {
 function isWithin(child, parent) {
   const relative = path.relative(parent, child);
   return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== "..");
+}
+
+function exitCodeFrom(error) {
+  return typeof error?.code === "number" ? error.code : 1;
+}
+
+function payloadOutput(payload, workingDirectory) {
+  const flags = parseFlags(payload);
+  return typeof flags.out === "string" ? path.resolve(workingDirectory, flags.out) : null;
+}
+
+function sanitizedCommand(payload) {
+  const sanitized = [];
+  let redactNext = false;
+
+  for (const argument of payload) {
+    if (redactNext) {
+      sanitized.push(redactedValue);
+      redactNext = false;
+      continue;
+    }
+
+    const assignmentIndex = argument.indexOf("=");
+    const name = assignmentIndex === -1 ? argument : argument.slice(0, assignmentIndex);
+    if (sensitiveArgumentPattern.test(name)) {
+      sanitized.push(assignmentIndex === -1 ? argument : `${name}=${redactedValue}`);
+      redactNext = assignmentIndex === -1;
+      continue;
+    }
+
+    sanitized.push(argument);
+  }
+
+  return sanitized;
+}
+
+function sanitizedEnvironment(workspaceRoot, overrides) {
+  const environment = {};
+  for (const name of safeEnvironmentNames) {
+    if (typeof process.env[name] === "string") environment[name] = process.env[name];
+  }
+
+  return {
+    ...environment,
+    HOME: path.join(workspaceRoot, "home"),
+    TMPDIR: path.join(workspaceRoot, "tmp"),
+    npm_config_cache: path.join(workspaceRoot, "npm-cache"),
+    ...overrides
+  };
 }
 
 async function main() {
@@ -41,38 +107,61 @@ async function main() {
     throw new Error("EVIDENCE_MUST_BE_OUTSIDE_CHECKOUT");
   }
 
-  const payloadOutIndex = payload.lastIndexOf("--out");
-  if (payloadOutIndex !== -1 && payload[payloadOutIndex + 1] && path.resolve(payload[payloadOutIndex + 1]) === outputDirectory) {
+  const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-"));
+  const detachedDirectory = path.join(workspaceRoot, "checkout");
+  const nestedOutputDirectory = payloadOutput(payload, detachedDirectory);
+  if (nestedOutputDirectory === outputDirectory) {
+    await rm(workspaceRoot, { recursive: true, force: true });
     throw new Error("WRAPPER_AND_PAYLOAD_OUTPUT_COLLIDE");
   }
 
-  const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-"));
-  const detachedDirectory = path.join(workspaceRoot, "checkout");
   const port = 41000 + Math.floor(Math.random() * 1000);
   const namespace = `bomti_${flags.sha.slice(0, 8)}_${port}`;
+  const environment = sanitizedEnvironment(workspaceRoot, {
+    TEST_SHA: flags.sha,
+    BOMTI_BASE_URL: `http://127.0.0.1:${port}`,
+    BOMTI_TEST_SUPABASE_NAMESPACE: namespace
+  });
+  const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+  const dependencyInstallCommand = [npmExecutable, "ci", "--no-audit", "--no-fund"];
+  let dependencyInstallExitCode = 1;
   let payloadExitCode = 1;
   let failureCode = null;
 
   try {
     await git(["worktree", "add", "--detach", detachedDirectory, flags.sha], { cwd: sourceDirectory });
     if (await statusAt(detachedDirectory)) throw new Error("LANE_WORKTREE_DIRTY_BEFORE_PAYLOAD");
-    await mkdir(outputDirectory, { recursive: true });
+    await Promise.all([
+      mkdir(outputDirectory, { recursive: true }),
+      mkdir(environment.HOME, { recursive: true }),
+      mkdir(environment.TMPDIR, { recursive: true }),
+      mkdir(environment.npm_config_cache, { recursive: true })
+    ]);
 
     try {
-      await execFileAsync(payload[0], payload.slice(1), {
+      await execFileAsync(dependencyInstallCommand[0], dependencyInstallCommand.slice(1), {
         cwd: detachedDirectory,
-        env: {
-          ...process.env,
-          TEST_SHA: flags.sha,
-          BOMTI_BASE_URL: `http://127.0.0.1:${port}`,
-          BOMTI_TEST_SUPABASE_NAMESPACE: namespace
-        },
+        env: environment,
         encoding: "utf8"
       });
-      payloadExitCode = 0;
+      dependencyInstallExitCode = 0;
     } catch (error) {
-      payloadExitCode = typeof error.code === "number" ? error.code : 1;
-      failureCode = "PAYLOAD_FAILED";
+      dependencyInstallExitCode = exitCodeFrom(error);
+      failureCode = "DEPENDENCY_INSTALL_FAILED";
+    }
+
+    if (dependencyInstallExitCode === 0) {
+      try {
+        await execFileAsync(payload[0], payload.slice(1), {
+          cwd: detachedDirectory,
+          env: environment,
+          encoding: "utf8"
+        });
+        payloadExitCode = 0;
+      } catch (error) {
+        payloadExitCode = exitCodeFrom(error);
+        failureCode = "PAYLOAD_FAILED";
+      }
     }
 
     if (await statusAt(detachedDirectory)) {
@@ -88,12 +177,22 @@ async function main() {
     verdict: payloadExitCode === 0 ? "pass" : "fail",
     runner: "evidence-lane",
     sha: flags.sha,
-    payload: payload[0],
+    dependencyInstallCommand,
+    dependencyInstallExitCode,
+    payloadCommand: sanitizedCommand(payload),
     payloadExitCode,
     failureCode,
+    nestedReceipt: nestedOutputDirectory ? path.join(nestedOutputDirectory, "result.json") : null,
     testedUrl: `http://127.0.0.1:${port}`,
     fixtureNamespace: namespace,
-    assertions: ["source clean before lane", "detached worktree used", "lane clean after payload", "cleanup attempted"]
+    assertions: [
+      "source clean before lane",
+      "detached worktree used",
+      "locked dependencies installed",
+      "payload environment allowlisted",
+      "lane clean after payload",
+      "cleanup attempted"
+    ]
   });
 
   if (payloadExitCode !== 0) process.exitCode = payloadExitCode;
