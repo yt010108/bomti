@@ -77,13 +77,13 @@ function verifyTable(sections, specification) {
   if (headers.join("|") !== specification.headers.join("|")) {
     throw new Error(`MISSING_TABLE_HEADERS:${specification.heading}`);
   }
-  const rowsByKey = new Map(rows.map((row) => [row[0], row]));
-  for (const [key, mapping, cellMappings] of specification.mappings) {
-    const row = rowsByKey.get(key);
-    const isComplete = row && cellMappings.every(([header, ...tokens]) => {
-      const index = headers.indexOf(header);
-      return index !== -1 && tokens.every((token) => row[index]?.includes(token));
-    });
+  for (const [key, mapping, expectedRow] of specification.mappings) {
+    const matchingRows = rows.filter((row) => row[0] === key);
+    const [row] = matchingRows;
+    const isComplete =
+      matchingRows.length === 1 &&
+      row.length === expectedRow.length &&
+      row.every((cell, index) => cell === expectedRow[index]);
     if (!isComplete) {
       throw new Error(`MISSING_MAPPING:${mapping}`);
     }
