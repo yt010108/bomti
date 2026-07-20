@@ -15,7 +15,7 @@
     "test:db": "node scripts/verification/database.mjs",
     "test:e2e": "node scripts/verification/fixture.mjs e2e",
     "test:privacy": "node scripts/verification/privacy.mjs",
-    "test:usage": "node scripts/verification/fixture.mjs usage",
+    "test:usage": "node scripts/verification/database.mjs",
     "test:providers": "node scripts/verification/fixture.mjs providers",
     "test:judge": "node scripts/verification/judge.mjs",
     "test:api": "node scripts/verification/fixture.mjs api",

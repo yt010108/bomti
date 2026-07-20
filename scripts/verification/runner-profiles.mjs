@@ -1,10 +1,5 @@
 const futureProfiles = {
   e2e: [],
-  usage: [
-    "account-three-kst-rollover",
-    "twenty-concurrent-cookie-rotation",
-    "refund-ambiguous-acceptance-month-boundary"
-  ],
   providers: ["deepseek-luna-terra-sol-valid", "opencode-429-sol-missing"],
   api: [
     "guest-auth-owned-history-feedback",
