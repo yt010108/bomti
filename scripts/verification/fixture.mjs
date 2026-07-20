@@ -1,4 +1,7 @@
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
+import { runFinalQa } from "./final-qa.mjs";
+import { runIndependentReview } from "./independent-review.mjs";
+import { classifyRunnerProfile, receiptForClassification } from "./runner-profiles.mjs";
 
 async function main() {
   const [runner, ...argv] = process.argv.slice(2);
@@ -6,29 +9,23 @@ async function main() {
 
   const flags = parseFlags(argv);
   requireReceiptFlags(flags);
-
-  if (flags.profile !== "toolchain-fixture-contract") {
-    const code = `RUNNER_NOT_IMPLEMENTED:${runner}`;
-    await writeReceipt(flags.out, {
-      verdict: "blocked",
-      runner,
-      profile: flags.profile,
-      sha: flags.sha,
-      code,
-      assertions: ["runner accepts profile/out/sha", "machine-readable blocked receipt emitted"],
-      scope: "toolchain-fixture-contract"
-    });
-    throw new Error(code);
+  let outcome;
+  if (runner === "final-qa" && flags.profile === "final-product") {
+    outcome = await runFinalQa(flags);
+  } else if (runner === "independent-review" && flags.profile === "readonly-final") {
+    outcome = await runIndependentReview(flags);
+  } else {
+    const classification = classifyRunnerProfile(runner, flags.profile);
+    outcome = receiptForClassification(classification);
   }
-
+  const { exitCode = 0, ...receipt } = outcome;
   await writeReceipt(flags.out, {
-    verdict: "pass",
+    ...receipt,
     runner,
     profile: flags.profile,
-    sha: flags.sha,
-    assertions: ["runner accepts profile/out/sha", "machine-readable receipt emitted"],
-    scope: "toolchain-fixture-contract"
+    sha: flags.sha
   });
+  if (exitCode !== 0) process.exitCode = exitCode;
 }
 
 main().catch((error) => {
