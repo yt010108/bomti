@@ -24,13 +24,13 @@ Use `gpt-5.6-sol` only when at least one condition applies:
 
 Use `high` reasoning for these cases. Use `xhigh`, `max`, or `ultra` only when the task explicitly requires it or a prior high-reasoning pass reports unresolved material risk.
 
-## LazyCodex usage
+## Codex-only execution
 
-- Do not activate `ultrawork`, `ulw-loop`, `ulw-research`, `review-work`, or dual high-accuracy review for routine questions, repository orientation, Git status, copy changes, or small single-module fixes.
-- Use a low worker for a small pattern-following change, a medium worker for a standard feature across a few established files, and a high worker only for genuine cross-module security, concurrency, migration, or architecture work.
-- Use `$start-work` for the approved implementation plan, but execute the smallest ready Todo and delegate only independent bounded ownership. Do not fan out duplicate exploration.
-- Do not repeat full-plan review after each Todo. Run the Todo's targeted checks and evidence contract. Reserve broad review for the end of a meaningful wave or an explicit plan gate.
-- Subagents may protect the main thread from noisy logs but increase total token use. Use them for independent parallel work or independent verification, not as a default speed setting.
+- Do not use LazyCodex, LazyCodex-specific worker/reviewer/gate roles, or LazyCodex/OMO orchestration commands and modes, including `omo:*`, `$start-work`, `ultrawork`, `ulw-loop`, `ulw-research`, and `review-work`.
+- Use the primary Codex agent directly for discovery, implementation, verification, review, and handoff. Do not translate routine work into a LazyCodex team or review pipeline.
+- If independent parallel work is genuinely necessary, use ordinary Codex subagents only, assign bounded non-overlapping ownership, and avoid duplicate exploration. Never select a LazyCodex-labelled role.
+- Execute the smallest ready Todo from the approved plan and run its targeted checks and evidence contract. Do not repeat full-plan review after each Todo; reserve broad review for the end of a meaningful wave or an explicit plan gate.
+- Keep full logs in artifact files and summarize only failures, causes, and relevant paths in the main thread.
 
 ## Context discipline
 

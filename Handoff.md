@@ -7,12 +7,12 @@ Approved plan SHA-256: db8e5cf15c77e766b7f45a8a695a99012bab62dba2c278c803e909286
 1. 이 파일, `.omo/plans/bomti-product-goal-and-scaffolding.md`, `.omo/drafts/bomti-product-goal-and-scaffolding.md`, 새 세션에 주입된 workspace instructions를 처음부터 끝까지 읽는다. 실제 `AGENTS.md`가 발견될 때만 해당 범위의 추가 지침으로 읽으며, 현재 루트에는 그 파일이 없다고 가정한다.
 2. `shasum -a 256 .omo/plans/bomti-product-goal-and-scaffolding.md` 결과가 위 승인 해시와 같은지 확인한다. 다르면 구현하지 말고 계획 변조 또는 인계 불일치로 보고한다.
 3. 초안의 `High-accuracy review state`에서 같은 계획 해시에 대한 Momus와 독립 검토가 모두 `approved`인지 확인한다. 하나라도 아니면 구현을 시작하지 않는다.
-4. 인터뷰를 다시 하거나 제품을 재기획하지 않는다. 충돌이 발견되지 않는 한 `omo:start-work` 또는 `$start-work` 절차로 승인 계획을 그대로 실행한다.
+4. 인터뷰를 다시 하거나 제품을 재기획하지 않는다. 충돌이 발견되지 않는 한 일반 Codex가 승인 계획을 직접 읽고 의존성 순서대로 실행한다. LazyCodex 및 OMO 오케스트레이션 명령은 사용하지 않는다.
 5. 제품 구현 전에 planning-lock bootstrap을 먼저 수행한다. 이 파일, 승인 계획, 역사 구분이 끝난 초안만 `chore(plan): lock approved Bomti implementation handoff`로 커밋하고 그 SHA를 저장소 밖 작업 기록에 `PLANNING_BASE_SHA`로 남긴다. 깨끗한 상태가 된 뒤 Todo 2 → Todo 1 → Todos 3-5 순서로 진행한다.
 
 새 세션용 시작 문장:
 
-> `Handoff.md`와 승인 계획을 완전히 읽고 해시 및 이중 승인 상태를 검증한 뒤 `$start-work`로 실행해줘. 재기획하지 말고 계획의 의존성, 격리 증거, 사용자 승인 경계를 그대로 지켜줘.
+> `Handoff.md`와 승인 계획을 완전히 읽고 해시 및 이중 승인 상태를 검증한 뒤 일반 Codex로 직접 실행해줘. LazyCodex 및 OMO 오케스트레이션은 사용하지 말고, 재기획하지 않은 채 계획의 의존성, 격리 증거, 사용자 승인 경계를 그대로 지켜줘.
 
 ## 현재 상태
 
@@ -54,6 +54,7 @@ Approved plan SHA-256: db8e5cf15c77e766b7f45a8a695a99012bab62dba2c278c803e909286
 
 ## 실행 규칙
 
+- LazyCodex, LazyCodex 전용 worker/reviewer/gate, `omo:*`, `$start-work`, `ultrawork`, `ulw-loop`, `ulw-research`, `review-work`는 사용하지 않는다. 일반 Codex가 주 작업자로 직접 실행하며, 별도 에이전트가 꼭 필요할 때도 LazyCodex 역할은 선택하지 않는다.
 - 계획의 15개 Todo를 의존성 순서로 실행하고 한 번에 하나만 `in_progress`로 둔다.
 - 각 Todo는 코드만 작성해서 끝내지 않는다. 승인 계획에 적힌 자동 경계 검사, happy/failure 시나리오, 실제 표면 QA, 비밀·원문이 없는 증거가 모두 필요하다.
 - 모든 증거는 주장한 커밋 SHA의 격리된 detached worktree에서 실행하고 체크아웃 바깥에 저장한다. 실행 전후 tracked/untracked 변경이 없어야 한다.
