@@ -10,3 +10,5 @@ playwright-report
 test-results
 .omo/evidence
 data/exports/*.jsonl
+supabase/.branches/
+supabase/.temp/

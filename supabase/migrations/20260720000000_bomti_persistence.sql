@@ -234,6 +234,26 @@ create trigger evaluations_aggregate_cost_before_delete
 before delete on public.evaluations
 for each row execute function public.aggregate_judge_cost_before_evaluation_delete();
 
+-- This server-only primitive is deliberately limited to the data that can
+-- reconnect an evaluation to an account. The deletion-state workflow that
+-- decides when to invoke it is enforced by the lifecycle migration.
+create function public.purge_account_linkable_data(
+  target_owner_id uuid,
+  target_subject_hmac text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.evaluations where owner_id = target_owner_id;
+  delete from public.consent_records where owner_id = target_owner_id;
+  delete from public.usage_counters
+  where subject_kind = 'account' and subject_hmac = target_subject_hmac;
+end;
+$$;
+
 -- Encryption material is removed atomically when the auth user is deleted.
 create function public.enforce_account_deletion_secret_lifecycle()
 returns trigger
@@ -281,7 +301,19 @@ on public.evaluations for delete
 to authenticated
 using ((select auth.uid()) = owner_id);
 
+grant select, delete on public.evaluations to authenticated;
+grant usage on schema public to service_role;
+grant all on public.evaluations, public.consent_records, public.judge_runs,
+  public.usefulness_feedback, public.usage_counters, public.budget_ledger,
+  public.provider_reconciliation, public.account_deletion_jobs,
+  public.guest_attempts, public.benchmark_records, public.benchmark_pairs,
+  public.benchmark_ratings, public.benchmark_usefulness to service_role;
+grant execute on function public.purge_account_linkable_data(uuid, text) to service_role;
+
 revoke all on public.budget_ledger, public.provider_reconciliation,
   public.account_deletion_jobs, public.guest_attempts, public.benchmark_records,
   public.benchmark_pairs, public.benchmark_ratings, public.benchmark_usefulness
 from anon, authenticated;
+
+revoke all on function public.purge_account_linkable_data(uuid, text)
+from public, anon, authenticated;
