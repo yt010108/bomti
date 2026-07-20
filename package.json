@@ -17,7 +17,7 @@
     "test:privacy": "node scripts/verification/fixture.mjs privacy",
     "test:usage": "node scripts/verification/fixture.mjs usage",
     "test:providers": "node scripts/verification/fixture.mjs providers",
-    "test:judge": "node scripts/verification/fixture.mjs judge",
+    "test:judge": "node scripts/verification/judge.mjs",
     "test:api": "node scripts/verification/fixture.mjs api",
     "visual:qa": "node scripts/verification/fixture.mjs visual",
     "qa:final": "node scripts/verification/fixture.mjs final-qa",
