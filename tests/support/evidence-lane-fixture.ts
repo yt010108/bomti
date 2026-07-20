@@ -81,6 +81,7 @@ if (output) {
   if (process.argv.includes("--numeric-code")) receipt.code = 123456789;
   if (process.argv.includes("--boolean-scope")) receipt.scope = true;
   if (process.argv.includes("--numeric-contract-version")) receipt.contractVersion = 20260721;
+  if (process.argv.includes("--cross-field-scope")) receipt.scope = "fixture receipt emitted";
   const documentSourceIndex = process.argv.indexOf("--document-source");
   if (documentSourceIndex !== -1) {
     receipt.code = ["TRANSIENT", "SOURCE", "ONLY"].join("_");

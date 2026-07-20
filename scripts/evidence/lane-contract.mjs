@@ -186,7 +186,7 @@ export async function nestedReceiptFailure(receiptPath, sha, profile, isDocument
       if (value === numericReceiptValues[field]) continue;
       return "NESTED_RECEIPT_SCHEMA_INVALID";
     }
-    if (typeof value === "string" && (await isDocumented(value))) continue;
+    if (typeof value === "string" && (await isDocumented(value, field))) continue;
     return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
   }
   return null;

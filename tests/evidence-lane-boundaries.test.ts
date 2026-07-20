@@ -115,6 +115,28 @@ describe("evidence lane trust boundaries", () => {
     expect(result.exitCode).toBe(0);
   });
 
+  it("does not apply caller Git configuration to internal commands", async () => {
+    const hookPath = path.join(fixtureRoot, "caller-git-hook");
+    const hookOutput = path.join(fixtureRoot, "caller-git-hook-output");
+    await writeFile(hookPath, `#!/bin/sh\nprintf reached > ${JSON.stringify(hookOutput)}\n`, "utf8");
+    await chmod(hookPath, 0o755);
+
+    const result = await runLane(
+      repository,
+      sha,
+      path.join(fixtureRoot, "caller-git-config-wrapper"),
+      [process.execPath, "-e", "process.exit(0)"],
+      {
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: "core.fsmonitor",
+        GIT_CONFIG_VALUE_0: hookPath
+      }
+    );
+
+    expect(result.exitCode).toBe(0);
+    await expect(readFile(hookOutput, "utf8")).rejects.toThrow();
+  });
+
   it("rejects wrapper output inside the linked worktree common Git directory", async () => {
     const commonGitOutput = path.join(fixtureRoot, "repository", ".git", "evidence-output");
     const result = await runLane(repository, sha, commonGitOutput, [process.execPath, "-e", "process.exit(0)"]);
@@ -141,8 +163,9 @@ describe("evidence lane trust boundaries", () => {
     expect(result.stderr).toContain("PAYLOAD_OUTPUT_MUST_BE_NESTED");
   });
 
-  it("rechecks a nested receipt path after the payload creates a symlink", async () => {
-    for (const targetKind of ["external", "wrapper"] as const) {
+  it.each(["external", "wrapper"] as const)(
+    "rechecks a nested receipt path after the payload creates a %s symlink",
+    async (targetKind) => {
       const wrapperOutput = path.join(fixtureRoot, `runtime-alias-${targetKind}-wrapper`);
       const nestedOutput = path.join(wrapperOutput, "payload");
       const aliasTarget = targetKind === "wrapper" ? wrapperOutput : path.join(fixtureRoot, "runtime-alias-external");
@@ -165,7 +188,7 @@ describe("evidence lane trust boundaries", () => {
       expect(receipt.nestedReceipt).toBeNull();
       await expect(lstat(nestedOutput)).rejects.toThrow();
     }
-  });
+  );
 
   it("does not publish invalid nested receipts created by a failing payload", async () => {
     const wrapperOutput = path.join(fixtureRoot, "failing-nested-wrapper");
@@ -224,6 +247,7 @@ describe("evidence lane trust boundaries", () => {
     "--numeric-code",
     "--boolean-scope",
     "--numeric-contract-version",
+    "--cross-field-scope",
     "--bad-redaction"
   ])("rejects invalid nested receipt metadata: %s", async (invalidFlag) => {
     const wrapperOutput = path.join(fixtureRoot, invalidFlag.slice(2));

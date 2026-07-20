@@ -17,9 +17,32 @@ import {
 import { parseFlags, requireReceiptFlags, writeReceipt } from "./receipt.mjs";
 
 const execFileAsync = promisify(execFile);
+const nullDevice = process.platform === "win32" ? "NUL" : "/dev/null";
+
+function gitEnvironment(executable) {
+  const environment = {
+    GIT_CONFIG_GLOBAL: nullDevice,
+    GIT_CONFIG_NOSYSTEM: "1",
+    LANG: "C",
+    LC_ALL: "C",
+    PATH: [path.dirname(executable), path.dirname(process.execPath), "/usr/bin", "/bin"].join(path.delimiter)
+  };
+  for (const name of ["ComSpec", "PATHEXT", "SystemRoot", "WINDIR"]) {
+    if (typeof process.env[name] === "string") environment[name] = process.env[name];
+  }
+  return environment;
+}
 
 async function git(executable, args, options = {}) {
-  return execFileAsync(executable, args, { encoding: "utf8", ...options });
+  return execFileAsync(
+    executable,
+    ["-c", "core.fsmonitor=false", "-c", `core.hooksPath=${nullDevice}`, ...args],
+    {
+      encoding: "utf8",
+      ...options,
+      env: gitEnvironment(executable)
+    }
+  );
 }
 
 async function statusAt(gitExecutable, directory) {
@@ -176,13 +199,15 @@ async function main() {
         laneExitCode = 1;
         await rm(nestedOutputDirectory, { recursive: true, force: true });
       } else {
-        const isDocumented = async (value) => {
+        const isDocumented = async (value, field = null) => {
           if (value.length === 0 || value.length > 500) return false;
           try {
-            await git(gitExecutable, ["grep", "-F", "-e", value, flags.sha, "--", "."], {
+            const { stdout } = await git(gitExecutable, ["grep", "-F", "-e", value, flags.sha, "--", "."], {
               cwd: sourceDirectory
             });
-            return true;
+            if (!field) return true;
+            const fieldPattern = new RegExp(`(?:^|[,{\\s])(?:${field}|["']${field}["'])\\s*:`);
+            return stdout.split("\n").some((line) => fieldPattern.test(line));
           } catch {
             return false;
           }
