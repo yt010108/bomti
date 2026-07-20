@@ -1,37 +1,19 @@
-# 평가 루브릭
+# Bomti 점수 계약
 
-## 기본 평가표
+루브릭 버전은 `bomti_index_v1`이다. 점수는 답변의 품질을 보상하는 점수가 아니라 맥락에 맞지 않거나 상투적·과장된 표현의 위험 지수다. 따라서 점수가 높을수록 더 밤티다.
 
-| 평가 항목 | 점수 | 설명 |
+## 위험 차원
+
+| 차원 | 가중치 | 의미 |
 | --- | ---: | --- |
-| 근거 정확성 | 25 | 공고, 기관 자료, 직무 정보에 기반했는가 |
-| 직무 연결성 | 20 | 지원 직무와 사용자의 경험을 설득력 있게 연결했는가 |
-| 경험 구체성 | 20 | 역할, 문제, 행동, 결과가 구체적인가 |
-| 실전 활용성 | 15 | 면접이나 자기소개서에서 실제로 사용할 수 있는가 |
-| 환각·과장 없음 | 10 | 없는 사실을 만들거나 과장하지 않았는가 |
-| 구조와 표현 | 10 | 읽기 쉽고 논리적으로 구성되어 있는가 |
+| `contextMismatch` | 25% | 질문·직무·회사/공고 맥락과의 불일치 |
+| `genericityCliche` | 25% | 누구에게나 적용되는 상투적 문구와 클리셰 |
+| `credibilityRisk` | 20% | 검증하기 어렵거나 과장된 주장 |
+| `specificityGap` | 20% | 행동·근거·성과의 부족 |
+| `toneReadabilityRisk` | 10% | 읽기 어려움이나 부적절한 어조 |
 
-## Judge 출력 형식
+Luna의 가중 차원 점수와 Terra의 전체 판단을 결합한다. 두 결과가 15점 이상 다르거나 `fabrication_or_unverifiable_claim` 플래그가 다르면 Sol이 정해진 필드만 adjudicate한다. Sol을 사용할 수 없으면 부분 성공을 반환하지 않고 retry-later 상태가 된다.
 
-```json
-{
-  "score_total": 0,
-  "scores": {
-    "evidence_accuracy": 0,
-    "job_relevance": 0,
-    "experience_specificity": 0,
-    "practicality": 0,
-    "no_hallucination": 0,
-    "structure": 0
-  },
-  "strengths": [],
-  "weaknesses": [],
-  "hallucination_flags": [],
-  "improvement_actions": [],
-  "rationale": ""
-}
-```
+## 표현 규칙
 
-## 루브릭 버전
-
-초기 루브릭명은 `public_job_interview_v1`로 둔다.
+근거는 검증된 문장 `segmentId`를 사용한다. 설명과 개선 방향은 사용자 텍스트를 재작성하지 않으며, 짧은 예시도 전체 완성 답변을 제공하지 않는다. 자세한 schema와 terminal error는 [requirements.md](requirements.md)를 따른다.

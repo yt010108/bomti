@@ -1,41 +1,11 @@
-# 개발 일정
+# 구현 순서
 
-기준일: 2026-07-15
+이 순서는 승인 계획의 의존성을 요약한 것이다. 세부 acceptance와 SHA-bound 증거 명령은 승인 계획을 우선한다.
 
-## 1주차: 기획과 골격
+1. 재현 가능한 도구체인과 증거 lane을 고정한다.
+2. 요구사항 원장을 정본으로 만들고 점수·입력 계약, Supabase/RLS, 디자인 primitives를 구축한다.
+3. privacy, 쿼터/예산, provider adapter, Judge orchestration, 평가 API를 의존성 순서로 구현한다.
+4. 공개 입력/결과, Google 인증·이력·삭제, 내부 benchmark CLI, 운영 preflight를 완성한다.
+5. 같은 최종 SHA에서 F1 계획 준수, F2 보안/독립 검토, F3 브라우저 QA, F4 범위 충실도를 순서대로 승인받는다.
 
-- 프로젝트 정의
-- Notion 허브 정리
-- GitHub 저장소 생성
-- README, docs, prompt 초안 작성
-- Next.js 프로젝트 초기화
-- Task 입력 폼 구현
-- 샘플 task 20개 작성
-
-## 2주차: Judge와 저장 구조
-
-- Judge 루브릭 프롬프트 구현
-- 답변별 점수 JSON 파싱
-- SQLite/Prisma 데이터 모델 구성
-- task, answer, judge_result 저장 구현
-- 평가 결과 화면 구현
-- 환각 의심 문장 표시
-
-## 3주차: A/B 선호와 데이터셋
-
-- A/B 비교 화면 구현
-- preference 저장 구현
-- 선택 이유 입력 UI 구현
-- JSONL export 구현
-- 데이터셋 미리보기 화면 구현
-- 대시보드 기본 통계 구현
-
-## 4주차: 데모와 고도화
-
-- 데모 시나리오 작성
-- 공공기관/보안 예시 task 보강
-- UI 문구 정리
-- README와 사용법 정리
-- 데모 영상 흐름 구성
-- 버그 수정
-- 제출 가능한 버전 정리
+실제 Supabase/Vercel/OAuth/유료 모델 활성화, live smoke test, Git push/PR, 외부 데이터 import는 이 로컬 순서에 포함되지 않으며 별도의 운영자 승인 경계다.

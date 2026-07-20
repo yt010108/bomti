@@ -22,7 +22,7 @@
     "visual:qa": "node scripts/verification/fixture.mjs visual",
     "qa:final": "node scripts/verification/fixture.mjs final-qa",
     "evidence:lane": "node scripts/evidence/lane.mjs",
-    "verify:requirements": "node scripts/verification/fixture.mjs requirements",
+    "verify:requirements": "node scripts/verification/requirements.mjs",
     "verify:traceability": "node scripts/verification/fixture.mjs traceability",
     "verify:security": "node scripts/verification/fixture.mjs security",
     "verify:scope": "node scripts/verification/fixture.mjs scope",
@@ -54,7 +54,10 @@
     "eslint": "9.39.5",
     "supabase": "2.109.1",
     "typescript": "5.9.3",
+    "unified": "11.0.5",
     "vercel": "56.3.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.10",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0"
   }
 }
