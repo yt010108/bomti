@@ -64,7 +64,7 @@ async function main() {
   const payloadDetails = payloadMetadata(payload);
   const profile = typeof flags.profile === "string" ? flags.profile : (payloadDetails.profile ?? "default");
   if (profile !== "default") {
-    await git(gitExecutable, ["grep", "-F", "-e", `--profile=${profile}`, "--", "."], {
+    await git(gitExecutable, ["grep", "-F", "-e", `--profile=${profile}`, flags.sha, "--", "."], {
       cwd: sourceDirectory
     }).catch(() => {
         throw new Error("PROFILE_NOT_DOCUMENTED");
@@ -75,7 +75,7 @@ async function main() {
   if (verifiedGitExecutable !== gitExecutable) throw new Error("TRUSTED_GIT_CHANGED");
   const npmName = process.platform === "win32" ? "npm.cmd" : "npm";
   const npmExecutable = await trustedExecutable(npmName, excludedDirectories);
-  const scriptNames = await packageScriptNames(sourceDirectory);
+  let scriptNames = new Set();
 
   const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-"));
   const detachedDirectory = path.join(workspaceRoot, "checkout");
@@ -122,6 +122,7 @@ async function main() {
       cwd: sourceDirectory
     });
     if (await statusAt(gitExecutable, detachedDirectory)) throw new Error("LANE_WORKTREE_DIRTY_BEFORE_PAYLOAD");
+    scriptNames = await packageScriptNames(detachedDirectory);
     await Promise.all([
       mkdir(outputDirectory, { recursive: true }),
       mkdir(environment.HOME, { recursive: true }),
@@ -178,7 +179,9 @@ async function main() {
         const isDocumented = async (value) => {
           if (value.length === 0 || value.length > 500) return false;
           try {
-            await git(gitExecutable, ["grep", "-F", "-e", value, "--", "."], { cwd: sourceDirectory });
+            await git(gitExecutable, ["grep", "-F", "-e", value, flags.sha, "--", "."], {
+              cwd: sourceDirectory
+            });
             return true;
           } catch {
             return false;

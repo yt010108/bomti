@@ -46,7 +46,7 @@ export async function createEvidenceLaneFixture(laneScript: string): Promise<Evi
   await writeFile(
     fixtureExecutable,
     `#!/usr/bin/env node
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 const equals = process.argv.find((argument) => argument.startsWith("--out="));
 const separate = process.argv.indexOf("--out");
@@ -77,6 +77,14 @@ if (output) {
   if (process.argv.includes("--raw-code")) receipt.code = ["benign", "nested", "raw", "marker"].join("-");
   if (process.argv.includes("--raw-uppercase-code")) {
     receipt.code = "RUNNER_NOT_IMPLEMENTED:" + ["BENIGN", "SUFFIX"].join("_");
+  }
+  if (process.argv.includes("--numeric-code")) receipt.code = 123456789;
+  if (process.argv.includes("--boolean-scope")) receipt.scope = true;
+  if (process.argv.includes("--numeric-contract-version")) receipt.contractVersion = 20260721;
+  const documentSourceIndex = process.argv.indexOf("--document-source");
+  if (documentSourceIndex !== -1) {
+    receipt.code = ["TRANSIENT", "SOURCE", "ONLY"].join("_");
+    appendFileSync(process.argv[documentSourceIndex + 1], "\\n" + receipt.code + "\\n", "utf8");
   }
   const publishedReceipt = process.argv.includes("--minimal-receipt")
     ? { sha: receipt.sha, profile: receipt.profile, redaction: receipt.redaction }

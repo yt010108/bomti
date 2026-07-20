@@ -190,15 +190,10 @@ describe("evidence lane trust boundaries", () => {
     expect(receipt.nestedReceipt).toBeNull();
   });
 
-  it("rejects nested receipts with incomplete, unknown, undocumented, or invalid metadata", async () => {
-    for (const invalidFlag of [
-      "--minimal-receipt",
-      "--raw-field",
-      "--raw-code",
-      "--raw-uppercase-code",
-      "--bad-redaction"
-    ]) {
-      const wrapperOutput = path.join(fixtureRoot, invalidFlag.slice(2));
+  it("checks nested metadata documentation against the tested commit", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "mutable-source-metadata");
+    const sourceDocument = path.join(repository, "profiles.txt");
+    try {
       const result = await runLane(repository, sha, wrapperOutput, [
         "npm",
         "run",
@@ -208,13 +203,45 @@ describe("evidence lane trust boundaries", () => {
         path.join(wrapperOutput, "payload"),
         "--profile",
         "integration",
-        invalidFlag
+        "--document-source",
+        sourceDocument
       ]);
       const receipt = await readLaneReceipt(wrapperOutput);
 
       expect(result.exitCode).not.toBe(0);
-      expect(receipt.failureCode).toMatch(/^NESTED_RECEIPT_/);
+      expect(receipt.failureCode).toBe("NESTED_RECEIPT_VALUE_UNDOCUMENTED");
       expect(receipt.nestedReceipt).toBeNull();
+    } finally {
+      await writeFile(sourceDocument, "--profile=integration\n", "utf8");
     }
+  });
+
+  it.each([
+    "--minimal-receipt",
+    "--raw-field",
+    "--raw-code",
+    "--raw-uppercase-code",
+    "--numeric-code",
+    "--boolean-scope",
+    "--numeric-contract-version",
+    "--bad-redaction"
+  ])("rejects invalid nested receipt metadata: %s", async (invalidFlag) => {
+    const wrapperOutput = path.join(fixtureRoot, invalidFlag.slice(2));
+    const result = await runLane(repository, sha, wrapperOutput, [
+      "npm",
+      "run",
+      "probe-dependency",
+      "--",
+      "--out",
+      path.join(wrapperOutput, "payload"),
+      "--profile",
+      "integration",
+      invalidFlag
+    ]);
+    const receipt = await readLaneReceipt(wrapperOutput);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(receipt.failureCode).toMatch(/^NESTED_RECEIPT_/);
+    expect(receipt.nestedReceipt).toBeNull();
   });
 });

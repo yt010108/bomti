@@ -8,6 +8,11 @@ const redactionDeclaration = "no secrets, raw inputs, identifiers, or tokens inc
 const safeEnvironmentNames = ["ComSpec", "LANG", "LC_ALL", "PATHEXT", "SystemRoot", "TERM", "TZ", "WINDIR"];
 const safeExecutableNames = new Set(["node", "node.exe", "npm", "npm.cmd"]);
 const safeNpmCommands = new Set(["exec", "run", "test"]);
+const numericReceiptValues = {
+  dimensions: 5,
+  guestEvidenceLimit: 3,
+  requirementCount: 15
+};
 const nestedReceiptFields = new Set([
   "assertions",
   "code",
@@ -177,7 +182,10 @@ export async function nestedReceiptFailure(receiptPath, sha, profile, isDocument
 
   for (const [field, value] of Object.entries(receipt)) {
     if (requiredFields.includes(field) || field === "sha") continue;
-    if (typeof value === "number" || typeof value === "boolean") continue;
+    if (Object.hasOwn(numericReceiptValues, field)) {
+      if (value === numericReceiptValues[field]) continue;
+      return "NESTED_RECEIPT_SCHEMA_INVALID";
+    }
     if (typeof value === "string" && (await isDocumented(value))) continue;
     return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
   }
