@@ -30,7 +30,7 @@ export async function createEvidenceLaneFixture(laneScript: string): Promise<Evi
     `${JSON.stringify({
       private: true,
       scripts: {
-        "evidence:lane": `node ${JSON.stringify(laneScript)}`,
+        "evidence:lane": `${JSON.stringify(process.execPath)} ${JSON.stringify(laneScript)}`,
         "probe-dependency": "fixture-bin"
       },
       devDependencies: { "fixture-bin": "file:./fixture-bin" }
@@ -63,14 +63,22 @@ if (output) {
   }
   mkdirSync(output, { recursive: true });
   const receipt = {
+    timestamp: new Date().toISOString(),
     sha: process.argv.includes("--wrong-sha") ? "wrong-sha" : process.env.TEST_SHA,
     profile,
+    verdict: "pass",
+    runner: "fixture-bin",
+    assertions: ["fixture receipt emitted"],
     redaction: process.argv.includes("--bad-redaction")
       ? "untrusted declaration"
       : "no secrets, raw inputs, identifiers, or tokens included"
   };
   if (process.argv.includes("--raw-field")) receipt.rawIdentifier = "benign-raw-identifier";
-  writeFileSync(path.join(output, "result.json"), JSON.stringify(receipt) + "\\n", "utf8");
+  if (process.argv.includes("--raw-code")) receipt.code = ["benign", "nested", "raw", "marker"].join("-");
+  const publishedReceipt = process.argv.includes("--minimal-receipt")
+    ? { sha: receipt.sha, profile: receipt.profile, redaction: receipt.redaction }
+    : receipt;
+  writeFileSync(path.join(output, "result.json"), JSON.stringify(publishedReceipt) + "\\n", "utf8");
 }
 if (process.argv.includes("--exit-after-receipt")) process.exit(7);
 `,

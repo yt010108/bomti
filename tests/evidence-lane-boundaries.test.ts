@@ -76,6 +76,21 @@ describe("evidence lane trust boundaries", () => {
     await expect(readFile(probeOutput, "utf8")).rejects.toThrow();
   });
 
+  it("runs internal Git and payload tools without a caller PATH", async () => {
+    const callerRuntime = path.join(fixtureRoot, "caller-runtime");
+    await mkdir(callerRuntime);
+    await symlink("/bin/sh", path.join(callerRuntime, "sh"));
+    const result = await runLane(
+      repository,
+      sha,
+      path.join(fixtureRoot, "empty-path-wrapper"),
+      [process.execPath, "-e", "process.exit(0)"],
+      { PATH: callerRuntime }
+    );
+
+    expect(result.exitCode).toBe(0);
+  });
+
   it("rejects wrapper output inside the linked worktree common Git directory", async () => {
     const commonGitOutput = path.join(fixtureRoot, "repository", ".git", "evidence-output");
     const result = await runLane(repository, sha, commonGitOutput, [process.execPath, "-e", "process.exit(0)"]);
@@ -150,8 +165,8 @@ describe("evidence lane trust boundaries", () => {
     expect(receipt.nestedReceipt).toBeNull();
   });
 
-  it("rejects nested receipts with unknown fields or an untrusted redaction declaration", async () => {
-    for (const invalidFlag of ["--raw-field", "--bad-redaction"]) {
+  it("rejects nested receipts with incomplete, unknown, undocumented, or invalid metadata", async () => {
+    for (const invalidFlag of ["--minimal-receipt", "--raw-field", "--raw-code", "--bad-redaction"]) {
       const wrapperOutput = path.join(fixtureRoot, invalidFlag.slice(2));
       const result = await runLane(repository, sha, wrapperOutput, [
         "npm",

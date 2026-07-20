@@ -135,7 +135,7 @@ export function payloadMetadata(payload) {
   };
 }
 
-export async function nestedReceiptFailure(receiptPath, sha, profile) {
+export async function nestedReceiptFailure(receiptPath, sha, profile, isDocumented) {
   let receipt;
   try {
     receipt = JSON.parse(await readFile(receiptPath, "utf8"));
@@ -144,10 +144,42 @@ export async function nestedReceiptFailure(receiptPath, sha, profile) {
   }
 
   if (!receipt || typeof receipt !== "object") return "NESTED_RECEIPT_INVALID";
+  const requiredFields = ["assertions", "profile", "redaction", "runner", "sha", "timestamp", "verdict"];
+  if (requiredFields.some((field) => !(field in receipt))) return "NESTED_RECEIPT_SCHEMA_INVALID";
   if (Object.keys(receipt).some((field) => !nestedReceiptFields.has(field))) return "NESTED_RECEIPT_SCHEMA_INVALID";
   if (receipt.sha !== sha) return "NESTED_RECEIPT_SHA_MISMATCH";
   if (receipt.profile !== profile) return "NESTED_RECEIPT_PROFILE_MISMATCH";
   if (receipt.redaction !== redactionDeclaration) return "NESTED_RECEIPT_REDACTION_INVALID";
+  if (typeof receipt.timestamp !== "string" || !Number.isFinite(Date.parse(receipt.timestamp))) {
+    return "NESTED_RECEIPT_SCHEMA_INVALID";
+  }
+  if (!["approve", "blocked", "fail", "pass", "skipped"].includes(receipt.verdict)) {
+    return "NESTED_RECEIPT_SCHEMA_INVALID";
+  }
+  if (typeof receipt.runner !== "string" || !(await isDocumented(receipt.runner))) {
+    return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
+  }
+  if (!Array.isArray(receipt.assertions) || receipt.assertions.length === 0) return "NESTED_RECEIPT_SCHEMA_INVALID";
+  for (const assertion of receipt.assertions) {
+    if (typeof assertion !== "string" || !(await isDocumented(assertion))) {
+      return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
+    }
+  }
+
+  for (const [field, value] of Object.entries(receipt)) {
+    if (requiredFields.includes(field) || field === "sha") continue;
+    if (typeof value === "number" || typeof value === "boolean") continue;
+    if (
+      field === "code" &&
+      typeof value === "string" &&
+      /^[A-Z][A-Z0-9_:-]*$/.test(value) &&
+      (await isDocumented(value.split(":")[0]))
+    ) {
+      continue;
+    }
+    if (typeof value === "string" && (await isDocumented(value))) continue;
+    return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
+  }
   return null;
 }
 

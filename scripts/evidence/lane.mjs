@@ -18,12 +18,12 @@ import { parseFlags, requireReceiptFlags, writeReceipt } from "./receipt.mjs";
 
 const execFileAsync = promisify(execFile);
 
-async function git(args, options = {}) {
-  return execFileAsync("git", args, { encoding: "utf8", ...options });
+async function git(executable, args, options = {}) {
+  return execFileAsync(executable, args, { encoding: "utf8", ...options });
 }
 
-async function statusAt(directory) {
-  const { stdout } = await git(["status", "--porcelain=v1"], { cwd: directory });
+async function statusAt(gitExecutable, directory) {
+  const { stdout } = await git(gitExecutable, ["status", "--porcelain=v1"], { cwd: directory });
   return stdout.trim();
 }
 
@@ -39,14 +39,18 @@ async function main() {
   requireReceiptFlags(flags, ["out", "sha"]);
   if (payload.length === 0) throw new Error("PAYLOAD_REQUIRED");
 
+  const gitName = process.platform === "win32" ? "git.exe" : "git";
+  const gitExecutable = await trustedExecutable(gitName, []);
   const sourceDirectory = await canonicalPath(process.cwd());
-  const { stdout: sourceSha } = await git(["rev-parse", "HEAD"], { cwd: sourceDirectory });
+  const { stdout: sourceSha } = await git(gitExecutable, ["rev-parse", "HEAD"], { cwd: sourceDirectory });
   if (sourceSha.trim() !== flags.sha) throw new Error("SOURCE_SHA_MISMATCH");
-  if (await statusAt(sourceDirectory)) throw new Error("SOURCE_WORKTREE_DIRTY");
+  if (await statusAt(gitExecutable, sourceDirectory)) throw new Error("SOURCE_WORKTREE_DIRTY");
 
-  const { stdout: gitDirectory } = await git(["rev-parse", "--git-dir"], { cwd: sourceDirectory });
+  const { stdout: gitDirectory } = await git(gitExecutable, ["rev-parse", "--git-dir"], { cwd: sourceDirectory });
   const resolvedGitDirectory = await canonicalPath(path.resolve(sourceDirectory, gitDirectory.trim()));
-  const { stdout: gitCommonDirectory } = await git(["rev-parse", "--git-common-dir"], { cwd: sourceDirectory });
+  const { stdout: gitCommonDirectory } = await git(gitExecutable, ["rev-parse", "--git-common-dir"], {
+    cwd: sourceDirectory
+  });
   const resolvedGitCommonDirectory = await canonicalPath(path.resolve(sourceDirectory, gitCommonDirectory.trim()));
   const outputDirectory = await canonicalPath(flags.out);
   if (
@@ -57,18 +61,33 @@ async function main() {
     throw new Error("EVIDENCE_MUST_BE_OUTSIDE_CHECKOUT");
   }
 
-  const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-"));
-  const detachedDirectory = path.join(workspaceRoot, "checkout");
   const payloadDetails = payloadMetadata(payload);
   const profile = typeof flags.profile === "string" ? flags.profile : (payloadDetails.profile ?? "default");
   if (profile !== "default") {
-    await git(["grep", "-F", "-e", `--profile=${profile}`, "--", "."], { cwd: sourceDirectory }).catch(() => {
-      throw new Error("PROFILE_NOT_DOCUMENTED");
-    });
+    await git(gitExecutable, ["grep", "-F", "-e", `--profile=${profile}`, "--", "."], {
+      cwd: sourceDirectory
+    }).catch(() => {
+        throw new Error("PROFILE_NOT_DOCUMENTED");
+      });
   }
-  const nestedOutputDirectory = payloadDetails.output
-    ? await canonicalPath(path.resolve(detachedDirectory, payloadDetails.output))
-    : null;
+  const excludedDirectories = [sourceDirectory, resolvedGitDirectory, resolvedGitCommonDirectory];
+  const verifiedGitExecutable = await trustedExecutable(gitName, excludedDirectories);
+  if (verifiedGitExecutable !== gitExecutable) throw new Error("TRUSTED_GIT_CHANGED");
+  const npmName = process.platform === "win32" ? "npm.cmd" : "npm";
+  const npmExecutable = await trustedExecutable(npmName, excludedDirectories);
+  const scriptNames = await packageScriptNames(sourceDirectory);
+
+  const workspaceRoot = await mkdtemp(path.join(os.tmpdir(), "bomti-lane-"));
+  const detachedDirectory = path.join(workspaceRoot, "checkout");
+  let nestedOutputDirectory;
+  try {
+    nestedOutputDirectory = payloadDetails.output
+      ? await canonicalPath(path.resolve(detachedDirectory, payloadDetails.output))
+      : null;
+  } catch (error) {
+    await rm(workspaceRoot, { recursive: true, force: true });
+    throw error;
+  }
   if (nestedOutputDirectory === outputDirectory) {
     await rm(workspaceRoot, { recursive: true, force: true });
     throw new Error("WRAPPER_AND_PAYLOAD_OUTPUT_COLLIDE");
@@ -80,23 +99,18 @@ async function main() {
 
   const port = 41000 + Math.floor(Math.random() * 1000);
   const namespace = `bomti_${flags.sha.slice(0, 8)}_${port}`;
-  const environment = await sanitizedEnvironment(
-    workspaceRoot,
-    detachedDirectory,
-    [sourceDirectory, resolvedGitDirectory, resolvedGitCommonDirectory],
-    {
+  let environment;
+  try {
+    environment = await sanitizedEnvironment(workspaceRoot, detachedDirectory, excludedDirectories, {
       TEST_SHA: flags.sha,
       BOMTI_BASE_URL: `http://127.0.0.1:${port}`,
       BOMTI_TEST_SUPABASE_NAMESPACE: namespace
-    }
-  );
-  const npmName = process.platform === "win32" ? "npm.cmd" : "npm";
-  const npmExecutable = await trustedExecutable(
-    npmName,
-    [sourceDirectory, resolvedGitDirectory, resolvedGitCommonDirectory]
-  );
+    });
+  } catch (error) {
+    await rm(workspaceRoot, { recursive: true, force: true });
+    throw error;
+  }
   const dependencyInstallCommand = ["npm", "ci", "--no-audit", "--no-fund"];
-  const scriptNames = await packageScriptNames(sourceDirectory);
   let dependencyInstallExitCode = 1;
   let payloadExitCode = null;
   let laneExitCode = 1;
@@ -104,8 +118,10 @@ async function main() {
   let verifiedNestedReceiptPath = null;
 
   try {
-    await git(["worktree", "add", "--detach", detachedDirectory, flags.sha], { cwd: sourceDirectory });
-    if (await statusAt(detachedDirectory)) throw new Error("LANE_WORKTREE_DIRTY_BEFORE_PAYLOAD");
+    await git(gitExecutable, ["worktree", "add", "--detach", detachedDirectory, flags.sha], {
+      cwd: sourceDirectory
+    });
+    if (await statusAt(gitExecutable, detachedDirectory)) throw new Error("LANE_WORKTREE_DIRTY_BEFORE_PAYLOAD");
     await Promise.all([
       mkdir(outputDirectory, { recursive: true }),
       mkdir(environment.HOME, { recursive: true }),
@@ -142,7 +158,7 @@ async function main() {
       }
     }
 
-    if (await statusAt(detachedDirectory)) {
+    if (await statusAt(gitExecutable, detachedDirectory)) {
       failureCode = "LANE_WORKTREE_DIRTY_AFTER_PAYLOAD";
       laneExitCode = 1;
     }
@@ -158,12 +174,22 @@ async function main() {
         failureCode = "NESTED_RECEIPT_OUTSIDE_WRAPPER";
         laneExitCode = 1;
       } else {
-        const nestedFailureCode = await nestedReceiptFailure(actualNestedReceiptPath, flags.sha, profile);
+        const isDocumented = async (value) => {
+          if (value.length === 0 || value.length > 500) return false;
+          try {
+            await git(gitExecutable, ["grep", "-F", "-e", value, "--", "."], { cwd: sourceDirectory });
+            return true;
+          } catch {
+            return false;
+          }
+        };
+        const nestedFailureCode = await nestedReceiptFailure(actualNestedReceiptPath, flags.sha, profile, isDocumented);
         if (nestedFailureCode) {
           if (laneExitCode === 0 || nestedFailureCode !== "NESTED_RECEIPT_INVALID") {
             failureCode = nestedFailureCode;
             laneExitCode = 1;
           }
+          await rm(nestedOutputDirectory, { recursive: true, force: true });
         } else {
           verifiedNestedReceiptPath = actualNestedReceiptPath;
         }
@@ -172,7 +198,7 @@ async function main() {
   } finally {
     let cleanupFailed = false;
     try {
-      await git(["worktree", "remove", "--force", detachedDirectory], { cwd: sourceDirectory });
+      await git(gitExecutable, ["worktree", "remove", "--force", detachedDirectory], { cwd: sourceDirectory });
     } catch {
       cleanupFailed = true;
     }

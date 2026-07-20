@@ -44,7 +44,7 @@ describe("evidence lane", () => {
       "benign-identifier"
     ];
 
-    const result = await runLane(repository, sha, wrapperOutput, payload);
+    const result = await runLane(repository, sha, wrapperOutput, payload, { npm_config_loglevel: "notice" });
     const receipt = await readLaneReceipt(wrapperOutput);
 
     expect(result.exitCode).toBe(0);

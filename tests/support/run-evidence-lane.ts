@@ -36,7 +36,7 @@ export async function runLane(
   return new Promise((resolve) => {
     execFile(
       process.execPath,
-      [npmCli, "run", "evidence:lane", "--", "--out", wrapperOutput, "--sha", sha, "--", ...payload],
+      [npmCli, "--silent", "run", "evidence:lane", "--", "--out", wrapperOutput, "--sha", sha, "--", ...payload],
       {
         cwd: repository,
         encoding: "utf8",
