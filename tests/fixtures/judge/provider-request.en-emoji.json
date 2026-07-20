@@ -1,0 +1,11 @@
+{
+  "contractVersion": "bomti_index_v1",
+  "locale": "en",
+  "question": "How did you improve the launch process? 😀",
+  "targetRole": "Product operations",
+  "jobCompanyContext": "A global subscription service",
+  "experienceEvidence": "I coordinated release checks across three teams.",
+  "segments": [
+    { "segmentId": "s0001", "pseudonymizedText": "I created a shared checklist 🚀" }
+  ]
+}
