@@ -5,7 +5,12 @@ import { promisify } from "node:util";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
 
 const execFileAsync = promisify(execFile);
-const profiles = new Set(["migration-reset-types", "ownership-delete-benchmark", "cross-tenant-denied"]);
+const profiles = new Set([
+  "migration-reset-types",
+  "ownership-delete-benchmark",
+  "cross-tenant-denied",
+  "deletion-cost-lifecycle"
+]);
 const supabaseArguments = ["node_modules/supabase/dist/supabase.js"];
 const generatedTypesPath = "lib/database/generated.types.ts";
 const failureReceipts = {
@@ -69,6 +74,15 @@ function assertionsForProfile(profile) {
       "authenticated user A cannot read or delete user B data through local GoTrue and PostgREST",
       "anonymous and browser roles are denied evaluations and server-only stores",
       "the cross-tenant test fails after the evaluation SELECT policy is deliberately weakened"
+    );
+  }
+
+  if (profile === "deletion-cost-lifecycle") {
+    assertions.push(
+      "PostgreSQL rejects invalid deletion initial states, skips, rewinds, and non-idempotent retries",
+      "every deletion transition rolls back after injected failure and succeeds exactly once on retry",
+      "account data removal settles the original cost identity and releases its reservation exactly once",
+      "auth ciphertext and terminal account identifiers are removed before TTL cleanup deletes the job"
     );
   }
 

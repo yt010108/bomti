@@ -42,14 +42,19 @@ jobs:
           set -euo pipefail
           source_sha=$(git rev-parse HEAD)
           evidence_root="$RUNNER_TEMP/bomti-database-evidence/$source_sha"
-          for profile in migration-reset-types ownership-delete-benchmark cross-tenant-denied; do
+          for profile_arg in \
+            --profile=migration-reset-types \
+            --profile=ownership-delete-benchmark \
+            --profile=cross-tenant-denied \
+            --profile=deletion-cost-lifecycle; do
+            profile="${profile_arg#--profile=}"
             wrapper="$evidence_root/$profile"
             payload="$wrapper/payload"
             npm run evidence:lane -- \
               --sha "$source_sha" \
               --out "$wrapper" \
               -- npm run test:db -- \
-              --profile="$profile" \
+              "$profile_arg" \
               --out="$payload" \
               --sha="$source_sha"
           done
