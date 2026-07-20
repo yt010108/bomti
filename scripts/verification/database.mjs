@@ -180,7 +180,7 @@ async function writeFailureReceipt(flags, error) {
     runner: "live-supabase-rls",
     profile: flags.profile,
     sha: flags.sha,
-    code,
+    code: code,
     databaseMode: "local-supabase-postgres",
     assertions: ["database integration never reports PASS when local Supabase/Postgres is unavailable or invalid"]
   });
