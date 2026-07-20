@@ -8,6 +8,13 @@ export function parseFlags(argv) {
     const token = argv[index];
     if (!token.startsWith("--")) continue;
 
+    const assignmentIndex = token.indexOf("=");
+    if (assignmentIndex !== -1) {
+      const key = token.slice(2, assignmentIndex);
+      flags[key] = token.slice(assignmentIndex + 1);
+      continue;
+    }
+
     const key = token.slice(2);
     const next = argv[index + 1];
     if (!next || next.startsWith("--")) {
