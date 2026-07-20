@@ -1,0 +1,11 @@
+{
+  "evidence": [
+    { "segmentId": "s0001", "dimension": "genericityCliche", "summary": "café", "severity": 40 },
+    { "segmentId": "s0001", "dimension": "genericityCliche", "summary": "café", "severity": 40 }
+  ],
+  "improvements": [
+    { "dimension": "specificityGap", "direction": "Add a metric", "example": "Reduced time" },
+    { "dimension": "specificityGap", "direction": "Add a metric", "example": "Reduced time" }
+  ],
+  "criticalFlags": ["context_mismatch", "context_mismatch"]
+}

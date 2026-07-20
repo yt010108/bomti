@@ -1,0 +1,49 @@
+{
+  "contractVersion": "bomti_index_v1",
+  "finalIndex": 38,
+  "descriptor": "살짝 밤티",
+  "dimensions": {
+    "contextMismatch": 34,
+    "genericityCliche": 40,
+    "credibilityRisk": 20,
+    "specificityGap": 45,
+    "toneReadabilityRisk": 15
+  },
+  "dimensionExplanations": {
+    "contextMismatch": "지원 직무 맥락과 연결됩니다.",
+    "genericityCliche": "일부 표현이 일반적입니다.",
+    "credibilityRisk": "검증하기 어려운 주장이 적습니다.",
+    "specificityGap": "성과의 근거를 더 제시할 수 있습니다.",
+    "toneReadabilityRisk": "문장이 읽기 쉽습니다."
+  },
+  "explanation": "맥락은 분명하지만 성과 근거를 보완할 수 있습니다.",
+  "evidence": [
+    { "segmentId": "s0002", "dimension": "specificityGap", "summary": "성과 근거가 제한적임", "severity": 45 }
+  ],
+  "improvements": [
+    { "dimension": "specificityGap", "direction": "측정 기준을 추가하세요.", "example": "처리 시간을 10% 줄였습니다." }
+  ],
+  "fragments": [
+    { "text": "처리 시간을 10% 줄였습니다.", "purpose": "성과를 구체화" }
+  ],
+  "criticalFlags": [],
+  "provenance": {
+    "/finalIndex": "server:hybrid",
+    "/descriptor": "server:range",
+    "/dimensions/contextMismatch": "luna",
+    "/dimensions/genericityCliche": "luna",
+    "/dimensions/credibilityRisk": "luna",
+    "/dimensions/specificityGap": "luna",
+    "/dimensions/toneReadabilityRisk": "luna",
+    "/dimensionExplanations/contextMismatch": "luna",
+    "/dimensionExplanations/genericityCliche": "luna",
+    "/dimensionExplanations/credibilityRisk": "luna",
+    "/dimensionExplanations/specificityGap": "luna",
+    "/dimensionExplanations/toneReadabilityRisk": "luna",
+    "/explanation": "terra",
+    "/evidence": "server:union",
+    "/improvements": "server:union",
+    "/fragments": "terra",
+    "/criticalFlags": "server:union"
+  }
+}
