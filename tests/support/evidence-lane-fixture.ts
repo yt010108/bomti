@@ -75,6 +75,9 @@ if (output) {
   };
   if (process.argv.includes("--raw-field")) receipt.rawIdentifier = "benign-raw-identifier";
   if (process.argv.includes("--raw-code")) receipt.code = ["benign", "nested", "raw", "marker"].join("-");
+  if (process.argv.includes("--raw-uppercase-code")) {
+    receipt.code = "RUNNER_NOT_IMPLEMENTED:" + ["BENIGN", "SUFFIX"].join("_");
+  }
   const publishedReceipt = process.argv.includes("--minimal-receipt")
     ? { sha: receipt.sha, profile: receipt.profile, redaction: receipt.redaction }
     : receipt;

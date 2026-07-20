@@ -173,6 +173,7 @@ async function main() {
       ) {
         failureCode = "NESTED_RECEIPT_OUTSIDE_WRAPPER";
         laneExitCode = 1;
+        await rm(nestedOutputDirectory, { recursive: true, force: true });
       } else {
         const isDocumented = async (value) => {
           if (value.length === 0 || value.length > 500) return false;
@@ -240,6 +241,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error.message);
+  const message = typeof error?.message === "string" ? error.message : "";
+  const stableCode = message.match(/^([A-Z][A-Z0-9_]*)(?::|$)/)?.[1] ?? "EVIDENCE_LANE_FAILED";
+  console.error(stableCode);
   process.exitCode = 1;
 });

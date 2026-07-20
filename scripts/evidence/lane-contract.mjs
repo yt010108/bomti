@@ -6,6 +6,7 @@ import { parseFlags } from "./receipt.mjs";
 const redactedValue = "[REDACTED]";
 const redactionDeclaration = "no secrets, raw inputs, identifiers, or tokens included";
 const safeEnvironmentNames = ["ComSpec", "LANG", "LC_ALL", "PATHEXT", "SystemRoot", "TERM", "TZ", "WINDIR"];
+const safeExecutableNames = new Set(["node", "node.exe", "npm", "npm.cmd"]);
 const safeNpmCommands = new Set(["exec", "run", "test"]);
 const nestedReceiptFields = new Set([
   "assertions",
@@ -56,12 +57,20 @@ export async function packageScriptNames(sourceDirectory) {
 
 export function sanitizedCommand(payload, scriptNames) {
   const executable = path.basename(payload[0]);
+  const sanitizedExecutable = safeExecutableNames.has(executable) ? executable : redactedValue;
 
   return payload.map((argument, index) => {
-    if (index === 0) return executable;
+    if (index === 0) return sanitizedExecutable;
     if (argument === "--") return argument;
-    if (executable.startsWith("npm") && index === 1 && safeNpmCommands.has(argument)) return argument;
-    if (executable.startsWith("npm") && index === 2 && payload[1] === "run" && scriptNames.has(argument)) return argument;
+    if (sanitizedExecutable.startsWith("npm") && index === 1 && safeNpmCommands.has(argument)) return argument;
+    if (
+      sanitizedExecutable.startsWith("npm") &&
+      index === 2 &&
+      payload[1] === "run" &&
+      scriptNames.has(argument)
+    ) {
+      return argument;
+    }
     return redactedValue;
   });
 }
@@ -169,14 +178,6 @@ export async function nestedReceiptFailure(receiptPath, sha, profile, isDocument
   for (const [field, value] of Object.entries(receipt)) {
     if (requiredFields.includes(field) || field === "sha") continue;
     if (typeof value === "number" || typeof value === "boolean") continue;
-    if (
-      field === "code" &&
-      typeof value === "string" &&
-      /^[A-Z][A-Z0-9_:-]*$/.test(value) &&
-      (await isDocumented(value.split(":")[0]))
-    ) {
-      continue;
-    }
     if (typeof value === "string" && (await isDocumented(value))) continue;
     return "NESTED_RECEIPT_VALUE_UNDOCUMENTED";
   }

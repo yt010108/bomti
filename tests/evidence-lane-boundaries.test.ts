@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createEvidenceLaneFixture, removeEvidenceLaneFixture } from "./support/evidence-lane-fixture";
@@ -51,6 +51,30 @@ describe("evidence lane trust boundaries", () => {
     ]);
     expect(profileResult.exitCode).not.toBe(0);
     expect(profileResult.stderr).toContain("PROFILE_NOT_DOCUMENTED");
+  });
+
+  it("redacts a caller-selected payload executable name", async () => {
+    const wrapperOutput = path.join(fixtureRoot, "caller-executable-wrapper");
+    const marker = "benign-caller-executable";
+    const result = await runLane(repository, sha, wrapperOutput, [marker]);
+    const receipt = await readLaneReceipt(wrapperOutput);
+    const serializedReceipt = await readFile(path.join(wrapperOutput, "result.json"), "utf8");
+
+    expect(result.exitCode).not.toBe(0);
+    expect(receipt.payloadCommand[0]).toBe("[REDACTED]");
+    expect(serializedReceipt).not.toContain(marker);
+  });
+
+  it("does not log a caller-selected invalid output path", async () => {
+    const parentPath = path.join(fixtureRoot, "invalid-output-parent");
+    const marker = "benign-invalid-output-marker";
+    await writeFile(parentPath, "not a directory", "utf8");
+
+    const result = await runLane(repository, sha, path.join(parentPath, marker), [process.execPath, "-e", ""]);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).not.toContain(marker);
+    expect(result.stderr.trim()).toMatch(/^(ENOTDIR|EVIDENCE_LANE_FAILED)$/);
   });
 
   it("does not execute a source-checkout binary through a caller PATH symlink", async () => {
@@ -139,6 +163,7 @@ describe("evidence lane trust boundaries", () => {
       expect(result.exitCode).not.toBe(0);
       expect(receipt.failureCode).toBe("NESTED_RECEIPT_OUTSIDE_WRAPPER");
       expect(receipt.nestedReceipt).toBeNull();
+      await expect(lstat(nestedOutput)).rejects.toThrow();
     }
   });
 
@@ -166,7 +191,13 @@ describe("evidence lane trust boundaries", () => {
   });
 
   it("rejects nested receipts with incomplete, unknown, undocumented, or invalid metadata", async () => {
-    for (const invalidFlag of ["--minimal-receipt", "--raw-field", "--raw-code", "--bad-redaction"]) {
+    for (const invalidFlag of [
+      "--minimal-receipt",
+      "--raw-field",
+      "--raw-code",
+      "--raw-uppercase-code",
+      "--bad-redaction"
+    ]) {
       const wrapperOutput = path.join(fixtureRoot, invalidFlag.slice(2));
       const result = await runLane(repository, sha, wrapperOutput, [
         "npm",
