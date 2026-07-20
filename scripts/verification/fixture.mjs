@@ -6,6 +6,21 @@ async function main() {
 
   const flags = parseFlags(argv);
   requireReceiptFlags(flags);
+
+  if (flags.profile !== "toolchain-fixture-contract") {
+    const code = `RUNNER_NOT_IMPLEMENTED:${runner}`;
+    await writeReceipt(flags.out, {
+      verdict: "blocked",
+      runner,
+      profile: flags.profile,
+      sha: flags.sha,
+      code,
+      assertions: ["runner accepts profile/out/sha", "machine-readable blocked receipt emitted"],
+      scope: "toolchain-fixture-contract"
+    });
+    throw new Error(code);
+  }
+
   await writeReceipt(flags.out, {
     verdict: "pass",
     runner,
