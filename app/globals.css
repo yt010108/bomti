@@ -1,0 +1,454 @@
+:root {
+  --paper: #f5f1e8;
+  --surface: #fffdf8;
+  --ink: #18252b;
+  --muted: #5f6b6e;
+  --line: #c8c1b3;
+  --accent: #7b3f2b;
+  --accent-strong: #5e2f21;
+  --accent-soft: #ead9cf;
+  --success: #245f47;
+  --success-soft: #e1eee7;
+  --warning: #8a570f;
+  --warning-soft: #f6e8ca;
+  --danger: #9b2f2f;
+  --danger-soft: #f5dddd;
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  line-height: 1.65;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    linear-gradient(90deg, transparent 0, transparent calc(50% - 1px), rgb(123 63 43 / 4%) 50%, transparent calc(50% + 1px)),
+    var(--paper);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+.bomti-shell {
+  width: min(100% - 32px, 1120px);
+  margin: 0 auto;
+  padding: 48px 0 80px;
+}
+
+.bomti-kicker {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bomti-title {
+  max-width: 16ch;
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.bomti-lead {
+  max-width: 62ch;
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.125rem);
+}
+
+.bomti-showcase-grid {
+  display: grid;
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.bomti-panel {
+  min-width: 0;
+  padding: clamp(20px, 4vw, 32px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.bomti-panel > :first-child {
+  margin-top: 0;
+}
+
+.bomti-panel > :last-child {
+  margin-bottom: 0;
+}
+
+.bomti-panel h2 {
+  margin: 0 0 20px;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.bomti-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.bomti-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.bomti-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font-weight: 740;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.bomti-button:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.bomti-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.bomti-button--secondary {
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+.bomti-button--secondary:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.bomti-button--danger {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+
+.bomti-button:disabled {
+  border-color: var(--line);
+  background: #e4dfd5;
+  color: #6c716f;
+  cursor: not-allowed;
+}
+
+.bomti-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: bomti-spin 700ms linear infinite;
+}
+
+@keyframes bomti-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bomti-field {
+  display: grid;
+  gap: 7px;
+}
+
+.bomti-field__label-row,
+.bomti-field__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bomti-field__label {
+  font-weight: 740;
+}
+
+.bomti-field__requirement,
+.bomti-field__description,
+.bomti-field__counter {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.bomti-field__control {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #8a8f8e;
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--ink);
+}
+
+textarea.bomti-field__control {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.bomti-field__control[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.bomti-field__error {
+  margin: 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.bomti-consent {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.bomti-consent + .bomti-consent {
+  margin-top: 10px;
+}
+
+.bomti-consent label {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  cursor: pointer;
+}
+
+.bomti-consent input {
+  width: 20px;
+  height: 20px;
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+
+.bomti-consent__title {
+  font-weight: 740;
+}
+
+.bomti-consent__description {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.bomti-status {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-control);
+}
+
+.bomti-status--success { color: var(--success); background: var(--success-soft); }
+.bomti-status--warning { color: var(--warning); background: var(--warning-soft); }
+.bomti-status--error { color: var(--danger); background: var(--danger-soft); }
+.bomti-status--info { color: var(--ink); background: #e7edef; }
+
+.bomti-status__icon {
+  font-weight: 900;
+  text-align: center;
+}
+
+.bomti-status__title {
+  display: block;
+  font-weight: 800;
+}
+
+.bomti-status__description {
+  margin: 2px 0 0;
+  color: currentColor;
+}
+
+.bomti-meter__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bomti-meter__score {
+  font-size: clamp(2.75rem, 10vw, 5.5rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+
+.bomti-meter__unit {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.bomti-meter__descriptor {
+  font-weight: 800;
+}
+
+.bomti-meter__track {
+  position: relative;
+  height: 18px;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #e7e1d6 0, #e7e1d6 calc(25% - 1px), var(--ink) 25%, var(--ink) calc(25% + 1px));
+}
+
+.bomti-meter__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-soft);
+}
+
+.bomti-meter__marker {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  transform: translate(-50%, -50%);
+}
+
+.bomti-meter__ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.bomti-dimensions {
+  display: grid;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bomti-dimension {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bomti-evidence {
+  margin: 0;
+  padding: 20px;
+  border-left: 4px solid var(--accent);
+  background: #f3ede5;
+  overflow-wrap: anywhere;
+}
+
+.bomti-evidence__id {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-strong);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.bomti-evidence__quote {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.bomti-evidence__reason {
+  margin: 12px 0 0;
+  color: var(--muted);
+}
+
+.bomti-broken-meter {
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4aa66b 0 35%, #d89b30 35% 70%, #c84545 70%);
+}
+
+@media (min-width: 900px) {
+  .bomti-showcase-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bomti-panel--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .bomti-shell {
+    width: min(100% - 24px, 1120px);
+    padding-top: 32px;
+  }
+
+  .bomti-button {
+    width: 100%;
+  }
+
+  .bomti-field__label-row,
+  .bomti-field__meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

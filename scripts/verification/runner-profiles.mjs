@@ -12,7 +12,7 @@ const futureProfiles = {
     "pseudonymize-before-provider-and-storage",
     "auth-body-origin-consent-quota-provider-failures"
   ],
-  visual: ["primitive-showcase", "fixture-color-only-meter", "result-boundaries"],
+  visual: ["result-boundaries"],
   "final-qa": ["final-product"],
   traceability: ["final"],
   security: ["final-adversarial"],
