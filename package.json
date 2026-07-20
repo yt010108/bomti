@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:db": "node scripts/verification/database.mjs",
     "test:e2e": "node scripts/verification/fixture.mjs e2e",
-    "test:privacy": "node scripts/verification/fixture.mjs privacy",
+    "test:privacy": "node scripts/verification/privacy.mjs",
     "test:usage": "node scripts/verification/fixture.mjs usage",
     "test:providers": "node scripts/verification/fixture.mjs providers",
     "test:judge": "node scripts/verification/judge.mjs",

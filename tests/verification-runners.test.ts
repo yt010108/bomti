@@ -45,12 +45,6 @@ describe("verification fixture runner", () => {
     const invocations = [
       { runner: "e2e", profile: "toolchain-fixture-contract", expectedVerdict: "pass" },
       {
-        runner: "privacy",
-        profile: "korean-pii-clean-context",
-        expectedVerdict: "blocked",
-        expectedCode: "dependency_not_ready"
-      },
-      {
         runner: "final-qa",
         profile: "final-product",
         expectedVerdict: "blocked",
@@ -80,11 +74,34 @@ describe("verification fixture runner", () => {
     const results = await Promise.all(invocations.map(runFixture));
 
     // Then: each command exits cleanly with a non-fabricated machine verdict.
-    expect(results.map(({ exitCode }) => exitCode)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(results.map(({ exitCode }) => exitCode)).toEqual(invocations.map(() => 0));
     expect(results.map(({ receipt }) => ({ verdict: receipt.verdict, code: receipt.code }))).toEqual(
       invocations.map(({ expectedVerdict, expectedCode }) => ({ verdict: expectedVerdict, code: expectedCode }))
     );
     expect(results.some(({ receipt }) => receipt.code?.startsWith("RUNNER_NOT_IMPLEMENTED"))).toBe(false);
+  });
+
+  it("runs the implemented privacy profile instead of reporting a future dependency", async () => {
+    const output = await mkdtemp(path.join(os.tmpdir(), "bomti-privacy-profile-"));
+    const exitCode = await new Promise<number>((resolve) => {
+      const child = spawn(
+        process.execPath,
+        [
+          "scripts/verification/privacy.mjs",
+          "--profile=korean-pii-clean-context",
+          `--out=${output}`,
+          "--sha=verification-test-sha"
+        ],
+        { cwd: process.cwd(), stdio: "ignore" }
+      );
+      child.once("exit", (code) => resolve(code ?? 1));
+    });
+    const receipt = receiptSchema.parse(JSON.parse(await readFile(path.join(output, "result.json"), "utf8")));
+    await rm(output, { recursive: true, force: true });
+
+    expect(exitCode).toBe(0);
+    expect(receipt).toMatchObject({ verdict: "pass", runner: "privacy", profile: "korean-pii-clean-context" });
+    expect(receipt.assertions).toContain("fixture secret scanner found zero originals");
   });
 
   it("rejects an undocumented runner/profile pair", async () => {

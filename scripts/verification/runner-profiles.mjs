@@ -1,6 +1,5 @@
 const futureProfiles = {
   e2e: [],
-  privacy: ["korean-pii-clean-context", "kisa-sbom-date-phone-email"],
   usage: [
     "account-three-kst-rollover",
     "twenty-concurrent-cookie-rotation",
