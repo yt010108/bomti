@@ -1,0 +1,74 @@
+name: Database integration
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/database.yml"
+      - "lib/database/**"
+      - "scripts/verification/database.mjs"
+      - "supabase/**"
+      - "tests/database-contract.test.ts"
+      - "tests/fixtures/database.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit or branch to verify
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the exact pull request head
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || inputs.ref || github.sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Run exact-SHA database evidence lanes
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=$(git rev-parse HEAD)
+          evidence_root="$RUNNER_TEMP/bomti-database-evidence/$source_sha"
+          for profile in migration-reset-types ownership-delete-benchmark cross-tenant-denied; do
+            wrapper="$evidence_root/$profile"
+            payload="$wrapper/payload"
+            npm run evidence:lane -- \
+              --sha "$source_sha" \
+              --out "$wrapper" \
+              -- npm run test:db -- \
+              --profile="$profile" \
+              --out="$payload" \
+              --sha="$source_sha"
+          done
+          node - "$evidence_root" <<'NODE'
+          const { readFileSync, readdirSync } = require("node:fs");
+          const { join } = require("node:path");
+          const root = process.argv[2];
+          for (const profile of readdirSync(root).sort()) {
+            for (const relative of ["result.json", "payload/result.json"]) {
+              const receipt = JSON.parse(readFileSync(join(root, profile, relative), "utf8"));
+              console.log(JSON.stringify({ profile, relative, verdict: receipt.verdict, sha: receipt.sha, code: receipt.code ?? null }));
+            }
+          }
+          NODE
+      - name: Upload sanitized database evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: database-evidence-${{ github.event.pull_request.head.sha || inputs.ref || github.sha }}
+          path: ${{ runner.temp }}/bomti-database-evidence
+          if-no-files-found: warn
+          retention-days: 14
