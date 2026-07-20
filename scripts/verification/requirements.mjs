@@ -4,8 +4,10 @@ import { unified } from "unified";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
+import { requiredTables } from "./requirements-contract.mjs";
 
 const REQUIRED_IDS = Array.from({ length: 15 }, (_, index) => `BOM-${String(index + 1).padStart(3, "0")}`);
+const profiles = new Set(["current", "missing-bom009", "historical-duplicate"]);
 const historicalStart = /^<!--\s*historical-non-active:start\b/i;
 const historicalEnd = /^<!--\s*historical-non-active:end\s*-->$/i;
 
@@ -14,9 +16,9 @@ function plainText(node) {
   return (node.children ?? []).map(plainText).join("");
 }
 
-function activeRequirementIds(markdown) {
+function activeNodes(markdown) {
   const root = unified().use(remarkParse).use(remarkGfm).parse(markdown);
-  const counts = new Map();
+  const nodes = [];
   let insideHistoricalSection = false;
 
   for (const node of root.children) {
@@ -28,7 +30,15 @@ function activeRequirementIds(markdown) {
       insideHistoricalSection = false;
       continue;
     }
-    if (insideHistoricalSection || node.type !== "table") continue;
+    if (!insideHistoricalSection) nodes.push(node);
+  }
+  return nodes;
+}
+
+function activeRequirementIds(nodes) {
+  const counts = new Map();
+  for (const node of nodes) {
+    if (node.type !== "table") continue;
 
     for (const row of node.children.slice(1)) {
       const id = plainText(row.children[0] ?? {}).trim();
@@ -39,8 +49,50 @@ function activeRequirementIds(markdown) {
   return counts;
 }
 
+function sectionTables(nodes) {
+  const sections = new Map();
+  let heading = null;
+  for (const node of nodes) {
+    if (node.type === "heading" && node.depth === 2) {
+      heading = plainText(node).trim();
+      sections.set(heading, { table: null });
+      continue;
+    }
+    if (heading && node.type === "table" && sections.get(heading)?.table === null) {
+      sections.set(heading, { table: node });
+    }
+  }
+  return sections;
+}
+
+function tableCells(table) {
+  return table.children.map((row) => row.children.map((cell) => plainText(cell).trim()));
+}
+
+function verifyTable(sections, specification) {
+  const section = sections.get(specification.heading);
+  if (!section) throw new Error(`MISSING_HEADING:${specification.heading}`);
+  if (!section.table) throw new Error(`MISSING_TABLE:${specification.heading}`);
+  const [headers = [], ...rows] = tableCells(section.table);
+  if (headers.join("|") !== specification.headers.join("|")) {
+    throw new Error(`MISSING_TABLE_HEADERS:${specification.heading}`);
+  }
+  for (const [key, mapping, expectedRow] of specification.mappings) {
+    const matchingRows = rows.filter((row) => row[0] === key);
+    const [row] = matchingRows;
+    const isComplete =
+      matchingRows.length === 1 &&
+      row.length === expectedRow.length &&
+      row.every((cell, index) => cell === expectedRow[index]);
+    if (!isComplete) {
+      throw new Error(`MISSING_MAPPING:${mapping}`);
+    }
+  }
+}
+
 function verifyLedger(markdown) {
-  const counts = activeRequirementIds(markdown);
+  const nodes = activeNodes(markdown);
+  const counts = activeRequirementIds(nodes);
   const missing = REQUIRED_IDS.filter((id) => counts.get(id) !== 1);
   const orphan = [...counts.keys()].filter((id) => !REQUIRED_IDS.includes(id));
   const duplicates = [...counts.entries()].filter(([, count]) => count !== 1).map(([id]) => id);
@@ -48,13 +100,16 @@ function verifyLedger(markdown) {
   if (missing.length) throw new Error(`MISSING_REQUIREMENT:${missing[0]}`);
   if (orphan.length) throw new Error(`ORPHAN_REQUIREMENT:${orphan[0]}`);
   if (duplicates.length) throw new Error(`DUPLICATE_REQUIREMENT:${duplicates[0]}`);
+  const sections = sectionTables(nodes);
+  for (const specification of requiredTables) verifyTable(sections, specification);
   return { requirementCount: counts.size };
 }
 
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
   requireReceiptFlags(flags);
-  const ledgerPath = path.join(process.cwd(), "docs", "requirements.md");
+  if (!profiles.has(flags.profile)) throw new Error(`UNKNOWN_REQUIREMENTS_PROFILE:${flags.profile}`);
+  const ledgerPath = typeof flags.source === "string" ? path.resolve(flags.source) : path.join(process.cwd(), "docs", "requirements.md");
   let markdown = await readFile(ledgerPath, "utf8");
 
   if (flags.profile === "missing-bom009") {
@@ -72,7 +127,12 @@ async function main() {
       profile: flags.profile,
       sha: flags.sha,
       ...result,
-      assertions: ["MDAST table parsed", "15 active IDs found exactly once", "historical sections excluded"]
+      assertions: [
+        "MDAST headings and tables parsed",
+        "15 active IDs found exactly once",
+        "required input score success terminal HTTP error retry refund and partial-verdict mappings found",
+        "historical sections excluded"
+      ]
     });
   } catch (error) {
     await writeReceipt(flags.out, {
@@ -81,7 +141,10 @@ async function main() {
       profile: flags.profile,
       sha: flags.sha,
       code: error.message,
-      assertions: ["MDAST table parsed", "missing, orphan, and duplicate IDs are rejected"]
+      assertions: [
+        "MDAST headings and tables parsed",
+        "missing orphan duplicate and incomplete structural mappings are rejected"
+      ]
     });
     throw error;
   }
