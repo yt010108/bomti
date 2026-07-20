@@ -1,11 +1,28 @@
-import { readFile, realpath } from "node:fs/promises";
+import { access, readFile, realpath } from "node:fs/promises";
+import { constants } from "node:fs";
 import path from "node:path";
 import { parseFlags } from "./receipt.mjs";
 
 const redactedValue = "[REDACTED]";
+const redactionDeclaration = "no secrets, raw inputs, identifiers, or tokens included";
 const safeEnvironmentNames = ["ComSpec", "LANG", "LC_ALL", "PATHEXT", "SystemRoot", "TERM", "TZ", "WINDIR"];
 const safeNpmCommands = new Set(["exec", "run", "test"]);
-const commandFlagPattern = /^--?[A-Za-z][A-Za-z0-9_-]*(?:=.*)?$/;
+const nestedReceiptFields = new Set([
+  "assertions",
+  "code",
+  "contractVersion",
+  "databaseMode",
+  "dimensions",
+  "guestEvidenceLimit",
+  "profile",
+  "redaction",
+  "requirementCount",
+  "runner",
+  "scope",
+  "sha",
+  "timestamp",
+  "verdict"
+]);
 
 export function isWithin(child, parent) {
   const relative = path.relative(parent, child);
@@ -43,14 +60,47 @@ export function sanitizedCommand(payload, scriptNames) {
   return payload.map((argument, index) => {
     if (index === 0) return executable;
     if (argument === "--") return argument;
-    if (commandFlagPattern.test(argument)) {
-      const assignmentIndex = argument.indexOf("=");
-      return assignmentIndex === -1 ? argument : `${argument.slice(0, assignmentIndex)}=${redactedValue}`;
-    }
     if (executable.startsWith("npm") && index === 1 && safeNpmCommands.has(argument)) return argument;
     if (executable.startsWith("npm") && index === 2 && payload[1] === "run" && scriptNames.has(argument)) return argument;
     return redactedValue;
   });
+}
+
+async function trustedRuntimeDirectories(excludedDirectories) {
+  const candidates = [path.dirname(process.execPath)];
+  if (process.platform === "win32") {
+    if (process.env.SystemRoot) candidates.push(path.join(process.env.SystemRoot, "System32"));
+  } else {
+    candidates.push("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin");
+  }
+
+  const directories = [];
+  for (const candidate of candidates) {
+    try {
+      const canonical = await canonicalPath(candidate);
+      if (!excludedDirectories.some((directory) => isWithin(canonical, directory)) && !directories.includes(canonical)) {
+        directories.push(canonical);
+      }
+    } catch {
+      continue;
+    }
+  }
+  return directories;
+}
+
+export async function trustedExecutable(name, excludedDirectories) {
+  const directories = await trustedRuntimeDirectories(excludedDirectories);
+  for (const directory of directories) {
+    const candidate = path.join(directory, name);
+    try {
+      await access(candidate, constants.X_OK);
+      const canonical = await canonicalPath(candidate);
+      if (!excludedDirectories.some((excluded) => isWithin(canonical, excluded))) return canonical;
+    } catch {
+      continue;
+    }
+  }
+  throw new Error(`TRUSTED_EXECUTABLE_MISSING:${name}`);
 }
 
 export async function sanitizedEnvironment(workspaceRoot, detachedDirectory, excludedDirectories, overrides) {
@@ -62,17 +112,11 @@ export async function sanitizedEnvironment(workspaceRoot, detachedDirectory, exc
   if (process.env.FORCE_COLOR) environment.FORCE_COLOR = "1";
   if (process.env.NO_COLOR) environment.NO_COLOR = "1";
 
-  const pathEntries = (process.env.PATH ?? "")
-    .split(path.delimiter)
-    .filter(Boolean);
-  const canonicalEntries = await Promise.all(pathEntries.map((entry) => canonicalPath(entry)));
-  const allowedEntries = canonicalEntries.filter(
-    (entry) => !excludedDirectories.some((directory) => isWithin(entry, directory))
-  );
+  const runtimeDirectories = await trustedRuntimeDirectories(excludedDirectories);
 
   return {
     ...environment,
-    PATH: [path.join(detachedDirectory, "node_modules", ".bin"), ...allowedEntries].join(path.delimiter),
+    PATH: [path.join(detachedDirectory, "node_modules", ".bin"), ...runtimeDirectories].join(path.delimiter),
     HOME: path.join(workspaceRoot, "home"),
     TMPDIR: path.join(workspaceRoot, "tmp"),
     npm_config_cache: path.join(workspaceRoot, "npm-cache"),
@@ -100,11 +144,10 @@ export async function nestedReceiptFailure(receiptPath, sha, profile) {
   }
 
   if (!receipt || typeof receipt !== "object") return "NESTED_RECEIPT_INVALID";
+  if (Object.keys(receipt).some((field) => !nestedReceiptFields.has(field))) return "NESTED_RECEIPT_SCHEMA_INVALID";
   if (receipt.sha !== sha) return "NESTED_RECEIPT_SHA_MISMATCH";
   if (receipt.profile !== profile) return "NESTED_RECEIPT_PROFILE_MISMATCH";
-  if (typeof receipt.redaction !== "string" || receipt.redaction.length === 0) {
-    return "NESTED_RECEIPT_REDACTION_MISSING";
-  }
+  if (receipt.redaction !== redactionDeclaration) return "NESTED_RECEIPT_REDACTION_INVALID";
   return null;
 }
 

@@ -1,50 +1,10 @@
-import { execFile } from "node:child_process";
 import { mkdir, readFile, symlink } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { z } from "zod";
 import { createEvidenceLaneFixture, removeEvidenceLaneFixture } from "./support/evidence-lane-fixture";
+import { readLaneReceipt, runLane } from "./support/run-evidence-lane";
 
 const laneScript = path.join(process.cwd(), "scripts/evidence/lane.mjs");
-const receiptSchema = z.object({
-  verdict: z.enum(["pass", "fail"]),
-  profile: z.string(),
-  payloadCommand: z.array(z.string()),
-  payloadExitCode: z.number().int(),
-  failureCode: z.string().nullable(),
-  nestedReceipt: z.string().nullable()
-});
-
-type LaneResult = {
-  exitCode: number;
-  stderr: string;
-};
-
-async function runLane(
-  repository: string,
-  sha: string,
-  wrapperOutput: string,
-  payload: string[],
-  extraEnvironment: Readonly<Record<string, string>> = {}
-): Promise<LaneResult> {
-  return new Promise((resolve) => {
-    execFile(
-      process.execPath,
-      [laneScript, "--out", wrapperOutput, "--sha", sha, "--", ...payload],
-      {
-        cwd: repository,
-        encoding: "utf8",
-        env: { ...process.env, ...extraEnvironment }
-      },
-      (error, _stdout, stderr) => {
-        resolve({
-          exitCode: typeof error?.code === "number" ? error.code : error ? 1 : 0,
-          stderr
-        });
-      }
-    );
-  });
-}
 
 describe("evidence lane", () => {
   let fixtureRoot = "";
@@ -52,7 +12,7 @@ describe("evidence lane", () => {
   let sha = "";
 
   beforeAll(async () => {
-    const fixture = await createEvidenceLaneFixture();
+    const fixture = await createEvidenceLaneFixture(laneScript);
     fixtureRoot = fixture.root;
     repository = fixture.repository;
     sha = fixture.sha;
@@ -85,8 +45,7 @@ describe("evidence lane", () => {
     ];
 
     const result = await runLane(repository, sha, wrapperOutput, payload);
-    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
-    const receipt = receiptSchema.parse(parsedReceipt);
+    const receipt = await readLaneReceipt(wrapperOutput);
 
     expect(result.exitCode).toBe(0);
     expect(receipt).toEqual({
@@ -97,23 +56,27 @@ describe("evidence lane", () => {
         "run",
         "probe-dependency",
         "--",
-        "--out",
         "[REDACTED]",
-        "--profile",
         "[REDACTED]",
-        "--token",
         "[REDACTED]",
-        "--header",
         "[REDACTED]",
-        "--answer",
         "[REDACTED]",
-        "--applicant-id",
+        "[REDACTED]",
+        "[REDACTED]",
+        "[REDACTED]",
+        "[REDACTED]",
+        "[REDACTED]",
+        "[REDACTED]",
         "[REDACTED]"
       ],
       payloadExitCode: 0,
       failureCode: null,
       nestedReceipt: "payload/result.json"
     });
+    const combinedLog = `${result.stdout}\n${result.stderr}`;
+    expect(combinedLog).not.toContain("benign-header-value");
+    expect(combinedLog).not.toContain("benign-raw-input");
+    expect(combinedLog).not.toContain("benign-identifier");
   });
 
   it("does not expose arbitrary caller environment variables to the payload", async () => {
@@ -160,18 +123,16 @@ describe("evidence lane", () => {
     ];
 
     const result = await runLane(repository, sha, wrapperOutput, payload);
-    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
-    const receipt = receiptSchema.parse(parsedReceipt);
+    const receipt = await readLaneReceipt(wrapperOutput);
 
     expect(result.exitCode).toBe(0);
-    expect(receipt.payloadCommand).toEqual(["node", "-e", "[REDACTED]", "[REDACTED]"]);
+    expect(receipt.payloadCommand).toEqual(["node", "[REDACTED]", "[REDACTED]", "[REDACTED]"]);
   });
 
   it("records the payload process exit status on failure", async () => {
     const wrapperOutput = path.join(fixtureRoot, "failure-wrapper");
     const result = await runLane(repository, sha, wrapperOutput, [process.execPath, "-e", "process.exit(7)"]);
-    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
-    const receipt = receiptSchema.parse(parsedReceipt);
+    const receipt = await readLaneReceipt(wrapperOutput);
 
     expect(result.exitCode).toBe(7);
     expect(receipt.payloadExitCode).toBe(7);
@@ -224,8 +185,7 @@ describe("evidence lane", () => {
       "integration",
       "--wrong-sha"
     ]);
-    const parsedReceipt: unknown = JSON.parse(await readFile(path.join(wrapperOutput, "result.json"), "utf8"));
-    const receipt = receiptSchema.parse(parsedReceipt);
+    const receipt = await readLaneReceipt(wrapperOutput);
 
     expect(result.exitCode).not.toBe(0);
     expect(receipt.failureCode).toBe("NESTED_RECEIPT_SHA_MISMATCH");

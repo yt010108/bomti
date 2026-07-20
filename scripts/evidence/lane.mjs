@@ -11,7 +11,8 @@ import {
   payloadMetadata,
   receiptLocation,
   sanitizedCommand,
-  sanitizedEnvironment
+  sanitizedEnvironment,
+  trustedExecutable
 } from "./lane-contract.mjs";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "./receipt.mjs";
 
@@ -45,8 +46,14 @@ async function main() {
 
   const { stdout: gitDirectory } = await git(["rev-parse", "--git-dir"], { cwd: sourceDirectory });
   const resolvedGitDirectory = await canonicalPath(path.resolve(sourceDirectory, gitDirectory.trim()));
+  const { stdout: gitCommonDirectory } = await git(["rev-parse", "--git-common-dir"], { cwd: sourceDirectory });
+  const resolvedGitCommonDirectory = await canonicalPath(path.resolve(sourceDirectory, gitCommonDirectory.trim()));
   const outputDirectory = await canonicalPath(flags.out);
-  if (isWithin(outputDirectory, sourceDirectory) || isWithin(outputDirectory, resolvedGitDirectory)) {
+  if (
+    isWithin(outputDirectory, sourceDirectory) ||
+    isWithin(outputDirectory, resolvedGitDirectory) ||
+    isWithin(outputDirectory, resolvedGitCommonDirectory)
+  ) {
     throw new Error("EVIDENCE_MUST_BE_OUTSIDE_CHECKOUT");
   }
 
@@ -54,6 +61,11 @@ async function main() {
   const detachedDirectory = path.join(workspaceRoot, "checkout");
   const payloadDetails = payloadMetadata(payload);
   const profile = typeof flags.profile === "string" ? flags.profile : (payloadDetails.profile ?? "default");
+  if (profile !== "default") {
+    await git(["grep", "-F", "-e", `--profile=${profile}`, "--", "."], { cwd: sourceDirectory }).catch(() => {
+      throw new Error("PROFILE_NOT_DOCUMENTED");
+    });
+  }
   const nestedOutputDirectory = payloadDetails.output
     ? await canonicalPath(path.resolve(detachedDirectory, payloadDetails.output))
     : null;
@@ -61,26 +73,35 @@ async function main() {
     await rm(workspaceRoot, { recursive: true, force: true });
     throw new Error("WRAPPER_AND_PAYLOAD_OUTPUT_COLLIDE");
   }
+  if (nestedOutputDirectory && !isWithin(nestedOutputDirectory, outputDirectory)) {
+    await rm(workspaceRoot, { recursive: true, force: true });
+    throw new Error("PAYLOAD_OUTPUT_MUST_BE_NESTED");
+  }
 
   const port = 41000 + Math.floor(Math.random() * 1000);
   const namespace = `bomti_${flags.sha.slice(0, 8)}_${port}`;
   const environment = await sanitizedEnvironment(
     workspaceRoot,
     detachedDirectory,
-    [sourceDirectory, resolvedGitDirectory],
+    [sourceDirectory, resolvedGitDirectory, resolvedGitCommonDirectory],
     {
       TEST_SHA: flags.sha,
       BOMTI_BASE_URL: `http://127.0.0.1:${port}`,
       BOMTI_TEST_SUPABASE_NAMESPACE: namespace
     }
   );
-  const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
-  const dependencyInstallCommand = [npmExecutable, "ci", "--no-audit", "--no-fund"];
+  const npmName = process.platform === "win32" ? "npm.cmd" : "npm";
+  const npmExecutable = await trustedExecutable(
+    npmName,
+    [sourceDirectory, resolvedGitDirectory, resolvedGitCommonDirectory]
+  );
+  const dependencyInstallCommand = ["npm", "ci", "--no-audit", "--no-fund"];
   const scriptNames = await packageScriptNames(sourceDirectory);
   let dependencyInstallExitCode = 1;
   let payloadExitCode = null;
   let laneExitCode = 1;
   let failureCode = null;
+  let verifiedNestedReceiptPath = null;
 
   try {
     await git(["worktree", "add", "--detach", detachedDirectory, flags.sha], { cwd: sourceDirectory });
@@ -93,7 +114,7 @@ async function main() {
     ]);
 
     try {
-      await execFileAsync(dependencyInstallCommand[0], dependencyInstallCommand.slice(1), {
+      await execFileAsync(npmExecutable, dependencyInstallCommand.slice(1), {
         cwd: detachedDirectory,
         env: environment,
         encoding: "utf8"
@@ -106,7 +127,8 @@ async function main() {
 
     if (dependencyInstallExitCode === 0) {
       try {
-        await execFileAsync(payload[0], payload.slice(1), {
+        const payloadExecutable = path.basename(payload[0]).startsWith("npm") ? npmExecutable : payload[0];
+        await execFileAsync(payloadExecutable, payload.slice(1), {
           cwd: detachedDirectory,
           env: environment,
           encoding: "utf8"
@@ -125,15 +147,26 @@ async function main() {
       laneExitCode = 1;
     }
 
-    if (laneExitCode === 0 && nestedOutputDirectory) {
-      const nestedFailureCode = await nestedReceiptFailure(
-        path.join(nestedOutputDirectory, "result.json"),
-        flags.sha,
-        profile
-      );
-      if (nestedFailureCode) {
-        failureCode = nestedFailureCode;
+    if (nestedOutputDirectory) {
+      const actualOutputDirectory = await canonicalPath(outputDirectory);
+      if (actualOutputDirectory !== outputDirectory) throw new Error("WRAPPER_OUTPUT_CHANGED");
+      const actualNestedReceiptPath = await canonicalPath(path.join(nestedOutputDirectory, "result.json"));
+      if (
+        !isWithin(actualNestedReceiptPath, actualOutputDirectory) ||
+        actualNestedReceiptPath === path.join(actualOutputDirectory, "result.json")
+      ) {
+        failureCode = "NESTED_RECEIPT_OUTSIDE_WRAPPER";
         laneExitCode = 1;
+      } else {
+        const nestedFailureCode = await nestedReceiptFailure(actualNestedReceiptPath, flags.sha, profile);
+        if (nestedFailureCode) {
+          if (laneExitCode === 0 || nestedFailureCode !== "NESTED_RECEIPT_INVALID") {
+            failureCode = nestedFailureCode;
+            laneExitCode = 1;
+          }
+        } else {
+          verifiedNestedReceiptPath = actualNestedReceiptPath;
+        }
       }
     }
   } finally {
@@ -164,10 +197,7 @@ async function main() {
     payloadCommand: sanitizedCommand(payload, scriptNames),
     payloadExitCode,
     failureCode,
-    nestedReceipt: receiptLocation(
-      nestedOutputDirectory ? path.join(nestedOutputDirectory, "result.json") : null,
-      outputDirectory
-    ),
+    nestedReceipt: receiptLocation(verifiedNestedReceiptPath, outputDirectory),
     testedUrl: `http://127.0.0.1:${port}`,
     fixtureNamespace: namespace,
     assertions: [

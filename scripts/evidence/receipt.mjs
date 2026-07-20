@@ -41,7 +41,7 @@ export async function writeReceipt(outputDirectory, payload) {
   await mkdir(outputDirectory, { recursive: true });
   const receipt = {
     timestamp: new Date().toISOString(),
-    redaction: "secrets, tokens, and credentials omitted",
+    redaction: "no secrets, raw inputs, identifiers, or tokens included",
     ...payload
   };
   await writeFile(path.join(outputDirectory, "result.json"), `${JSON.stringify(receipt, null, 2)}\n`, "utf8");
