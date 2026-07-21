@@ -89,6 +89,78 @@ textarea {
   font-size: clamp(1rem, 2vw, 1.125rem);
 }
 
+.bomti-page-header {
+  max-width: 760px;
+  margin-bottom: 40px;
+}
+
+.bomti-evaluation-layout {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+.bomti-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bomti-section-heading h2,
+.bomti-subheading {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.bomti-mode {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.bomti-side-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.bomti-facts {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+}
+
+.bomti-facts div {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bomti-facts div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.bomti-facts dt {
+  font-weight: 800;
+}
+
+.bomti-facts dd {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+
+.bomti-form-actions {
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
 .bomti-showcase-grid {
   display: grid;
   gap: 24px;
@@ -417,6 +489,10 @@ textarea.bomti-field__control {
 @media (min-width: 900px) {
   .bomti-showcase-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bomti-evaluation-layout {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.85fr);
   }
 
   .bomti-panel--wide {

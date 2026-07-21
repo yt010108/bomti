@@ -11,6 +11,7 @@ import {
   requireSameOrigin
 } from "../../../lib/api/contract";
 import { evaluationApiService } from "../../../lib/api/service";
+import { validateEvaluationInput } from "../../../lib/contracts/evaluation";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,11 @@ export async function POST(request: Request) {
       return apiErrorResponse(new ApiError(409, "CONSENT_VERSION_INVALID"));
     }
     const identity = audienceFor(request);
+    const { consent, ...rawInput } = body.data;
+    const validatedInput = validateEvaluationInput(rawInput, identity.audience);
+    const { answerSegments: _answerSegments, ...normalizedInput } = validatedInput;
     const result = await evaluationApiService().create(
-      body.data,
+      { ...normalizedInput, consent },
       identity.audience,
       identity.subject,
       requireIdempotencyKey(request),

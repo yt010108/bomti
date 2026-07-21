@@ -23,6 +23,7 @@ export function FormField(props: FormFieldProps) {
   const shared = {
     id,
     className: "bomti-field__control",
+    maxLength,
     "aria-describedby": describedBy,
     "aria-invalid": error ? (true as const) : undefined
   };

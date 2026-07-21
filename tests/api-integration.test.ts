@@ -126,6 +126,14 @@ describe("validated evaluation API", () => {
     expect((await body(noIdempotency)).error).toEqual({ code: "IDEMPOTENCY_KEY_REQUIRED" });
     const oversized = await createEvaluation(request("/api/evaluations", { method: "POST", user, key: id("oversized"), headers: { "content-type": "application/json" }, body: JSON.stringify({ ...payload(), answer: "a".repeat(25_000) }) }));
     expect((await body(oversized)).error).toEqual({ code: "BODY_TOO_LARGE" });
+    const guestLength = await createEvaluation(request("/api/evaluations", {
+      method: "POST",
+      guest: id("guest-length"),
+      key: id("guest-length-key"),
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...payload(), answer: "a".repeat(1_501) })
+    }));
+    expect((await body(guestLength)).error).toEqual({ code: "ANSWER_TOO_LONG" });
     const noOrigin = await createEvaluation(new Request(`${origin}/api/evaluations`, { method: "POST", headers: { "content-type": "application/json", "x-bomti-test-user": user, "idempotency-key": id("origin") }, body: JSON.stringify(payload()) }));
     expect((await body(noOrigin)).error).toEqual({ code: "ORIGIN_FORBIDDEN" });
     const callsBeforeUnavailable = evaluationApiService().diagnostics().providerCalls;
