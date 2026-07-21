@@ -22,7 +22,9 @@ test("@full-product @public-form-happy @result-a11y-feedback supports keyboard g
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/?scenario=happy");
     await expect(page.getByText("진단 가이드")).toBeVisible();
-    await expect(page.getByText("비로그인 상태에서는 브라우저당 정해진 횟수만 진단할 수 있습니다.")).toBeVisible();
+    await expect(page.getByText("결정적 로컬 fixture")).toBeVisible();
+    await expect(page.getByText("비로그인은 오늘 브라우저·IP 기준 각각 1회 미리보기를 이용할 수 있습니다.")).toBeVisible();
+    await expect(page.getByText("무료 모델은 가명처리된 요청을 모델 개선에 사용할 수 있으므로 개인·기밀정보를 입력하지 마세요.")).toBeVisible();
     await expect(page.getByRole("button", { name: "답변 진단하기" })).toBeDisabled();
     await expect(page.locator("body")).toHaveJSProperty("scrollWidth", width);
   }
@@ -32,13 +34,17 @@ test("@full-product @public-form-happy @result-a11y-feedback supports keyboard g
   await consent(page);
   await page.getByRole("button", { name: "답변 진단하기" }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "지원동기 및 포부 분석 결과" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자기소개서 답변 분석 결과" })).toBeVisible();
+  await expect(page.getByText("점수는 합격이나 불합격을 뜻하지 않습니다.", { exact: false })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  await expect(page.getByText("살짝 밤티", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "문장 근거" })).toBeVisible();
   await expect(page.locator(".bomti-dimension")).toHaveCount(5);
+  await expect(page.getByRole("link", { name: /결과 저장/ })).toHaveCount(0);
+  await expect(page.getByText("게스트 미리보기 결과는 저장되지 않습니다.")).toBeVisible();
 
   await page.goto("/?fixture=auth");
-  await expect(page.getByText("인증 사용자는 더 긴 답변을 진단하고 이력을 관리할 수 있습니다.")).toBeVisible();
+  await expect(page.getByText("인증 사용자는 이번 캠페인에서 3회 평가하고 이력을 관리할 수 있습니다.")).toBeVisible();
   await fillRequiredFields(page);
   await consent(page);
   await page.getByRole("button", { name: "답변 진단하기" }).click();

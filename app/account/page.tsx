@@ -23,7 +23,7 @@ export default function AccountPage() {
           <div><h2><span className="bomti-inline-icon" aria-hidden="true">♢</span> 데이터 보관 및 활용</h2><p className="bomti-account-card__lead">귀하의 진단 기록이 어떻게 관리되는지 투명하게 안내해 드립니다.</p></div>
           <div className="bomti-account-data-grid">
             <article><span aria-hidden="true">◴</span><h3>기록 저장</h3><p>완료된 평가 이력은 가명처리되어 저장되며, 사용자 본인만 열람할 수 있습니다.</p></article>
-            <article><span aria-hidden="true">⌁</span><h3>맞춤형 분석</h3><p>저장된 데이터는 개인화된 피드백을 제공하는 데 필요한 범위에서만 사용됩니다.</p></article>
+            <article><span aria-hidden="true">⌁</span><h3>평가 결과 제공</h3><p>저장된 데이터는 본인이 완료한 평가 결과와 근거를 다시 보여주는 데 필요한 범위에서만 사용됩니다.</p></article>
           </div>
         </section>
         <section className="bomti-panel bomti-danger-zone bomti-stack">

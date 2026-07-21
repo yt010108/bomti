@@ -14,7 +14,7 @@ export function LandingPage() {
           <p className="bomti-landing-hero__lead">자기소개서에서 모호하거나 상투적인 표현, 근거가 부족한 문장을 찾아 더 구체적인 개선 방향을 제안합니다.</p>
           <div className="bomti-landing-hero__actions">
             <a className="bomti-button" href="/diagnosis">내 답변 진단하기 <span aria-hidden="true">→</span></a>
-            <p className="bomti-landing-privacy"><span aria-hidden="true">♙</span><span>Privacy-first processing.<br />명시적 동의 없이는 학습에 사용하지 않습니다.</span></p>
+            <p className="bomti-landing-privacy"><span aria-hidden="true">♙</span><span>Privacy-first processing.<br />명시적 동의 후 가명처리된 입력만 평가 모델에 전송합니다.</span></p>
           </div>
         </div>
         <div className="bomti-landing-visual" role="img" aria-label="노트북이 놓인 차분한 작업 공간과 답변 분석 진행 카드">

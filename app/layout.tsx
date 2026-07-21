@@ -21,14 +21,14 @@ export default function RootLayout({
               <a href="/diagnosis">진단하기</a>
               <a href="/history">내 기록</a>
             </nav>
-            <a className="bomti-site-header__cta" href="/account">로그인</a>
+            <a className="bomti-site-header__cta" href="/account">계정 설정</a>
           </div>
         </header>
         {children}
         <footer className="bomti-site-footer">
           <div className="bomti-site-footer__inner">
-            <div className="bomti-site-footer__brand"><strong>Bomti</strong><span>© 2024 Bomti AI. All rights reserved.</span></div>
-            <nav aria-label="정책"><a href="/account">개인정보처리방침</a><a href="/account">가명처리 정책</a><a href="/account">데이터 보관 정책</a></nav>
+            <div className="bomti-site-footer__brand"><strong>Bomti</strong><span>Bomti index는 합격·불합격 판정이 아닙니다.</span></div>
+            <nav aria-label="서비스"><a href="/diagnosis">평가와 개인정보 안내</a><a href="/history">내 기록</a><a href="/account">계정 설정</a></nav>
           </div>
         </footer>
       </body>

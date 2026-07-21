@@ -1,8 +1,8 @@
 const descriptors = [
-  { max: 24, label: "보완이 필요해요" },
-  { max: 49, label: "다듬으면 좋아요" },
-  { max: 74, label: "기본기가 좋아요" },
-  { max: 100, label: "설득력이 좋아요" }
+  { max: 24, label: "밤티 거의 없음" },
+  { max: 49, label: "살짝 밤티" },
+  { max: 74, label: "꽤 밤티" },
+  { max: 100, label: "밤티 그 자체" }
 ] as const;
 
 export function scoreDescriptor(score: number) {

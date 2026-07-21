@@ -198,10 +198,10 @@ export function EvaluationForm({
     return (
       <main className="bomti-result-page">
         <section className="bomti-container bomti-result-page__shell">
-          <header className="bomti-result-page__intro"><p className="bomti-kicker">◉ 진단 완료</p><h1>지원동기 및 포부 분석 결과</h1><p>제출해주신 자기소개서 문항을 분석했습니다. 구체성과 설득력이 돋보이는 좋은 글입니다.</p></header>
+          <header className="bomti-result-page__intro"><p className="bomti-kicker">◉ 진단 완료</p><h1>자기소개서 답변 분석 결과</h1><p>점수는 합격이나 불합격을 뜻하지 않습니다. 발견된 위험 신호와 개선 방향을 확인해 주세요.</p></header>
           <EvaluationResult audience={completedResult.audience} verdict={completedResult.verdict} segments={completedResult.segments} />
           <div className="bomti-result-page__actions">
-            <a className="bomti-button bomti-button--secondary" href={completedResult.audience === "authenticated" ? "/history" : "/account"}>{completedResult.audience === "authenticated" ? "저장된 결과 보기" : "로그인해 결과 저장하기"}</a>
+            {completedResult.audience === "authenticated" ? <a className="bomti-button bomti-button--secondary" href="/history">저장된 결과 보기</a> : <p className="bomti-empty">게스트 미리보기 결과는 저장되지 않습니다.</p>}
             <Button type="button" onClick={returnToDraft}>수정한 답변 다시 진단하기</Button>
           </div>
         </section>
@@ -230,7 +230,9 @@ export function EvaluationForm({
             <h2><span aria-hidden="true">ⓘ</span> 진단 가이드</h2>
             <dl>
               <div><dt><span aria-hidden="true">◉</span> 분석 기준</dt><dd>직무 적합성, 논리적 흐름, 구체성, 그리고 표현의 명확성을 기준으로 분석합니다.</dd></div>
-              <div><dt><span aria-hidden="true">⌛</span> 게스트 제한</dt><dd>{fixtureAudience === "guest" ? "비로그인 상태에서는 브라우저당 정해진 횟수만 진단할 수 있습니다." : "인증 사용자는 더 긴 답변을 진단하고 이력을 관리할 수 있습니다."}</dd></div>
+              <div><dt><span aria-hidden="true">◎</span> 현재 평가 모델</dt><dd>{fixtureEnabled ? "결정적 로컬 fixture" : fixtureAudience === "guest" ? "OpenCode Zen의 설정된 무료 guest 모델" : "OpenAI Luna·Terra, 필요한 경우 Sol"}</dd></div>
+              <div><dt><span aria-hidden="true">⌛</span> 평가 한도</dt><dd>{fixtureAudience === "guest" ? "비로그인은 오늘 브라우저·IP 기준 각각 1회 미리보기를 이용할 수 있습니다." : "인증 사용자는 이번 캠페인에서 3회 평가하고 이력을 관리할 수 있습니다."}</dd></div>
+              {fixtureAudience === "guest" ? <div><dt><span aria-hidden="true">△</span> 무료 모델 데이터 이용</dt><dd>무료 모델은 가명처리된 요청을 모델 개선에 사용할 수 있으므로 개인·기밀정보를 입력하지 마세요.</dd></div> : null}
               <div><dt><span aria-hidden="true">♢</span> 프라이버시 FAQ</dt><dd>입력하신 데이터는 가명처리되어 분석되며 원문을 서버 로그에 저장하지 않습니다.</dd></div>
             </dl>
             <section id="evaluation-status" aria-live="polite"><StatusBanner tone={message.tone} title={message.title}>{message.description}</StatusBanner></section>
