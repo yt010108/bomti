@@ -45,8 +45,11 @@ async function ensureService(flags, targetUrl) {
 
   const parsed = new URL(targetUrl);
   const port = parsed.port || "3000";
-  const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
-  const child = spawn(npmExecutable, ["run", "dev", "--", "--hostname", parsed.hostname, "--port", port], {
+  const npmInvocation = process.platform === "win32"
+    ? [process.execPath, process.env.npm_execpath, "run", "dev", "--", "--hostname", parsed.hostname, "--port", port]
+    : ["npm", "run", "dev", "--", "--hostname", parsed.hostname, "--port", port];
+  if (process.platform === "win32" && !process.env.npm_execpath) throw new Error("NPM_EXEC_PATH_REQUIRED");
+  const child = spawn(npmInvocation[0], npmInvocation.slice(1), {
     cwd: process.cwd(),
     detached: process.platform !== "win32",
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
