@@ -191,6 +191,22 @@ describe("hybrid Judge orchestrator", () => {
     });
     expect("verdict" in result).toBe(false);
     expect(source.sol.calls).toBe(0);
+
+    const unavailableSol = adapter<SolCandidate>(async () => {
+      throw new ProviderError("AUTH_PROVIDER_UNAVAILABLE", "sol", "not_accepted", false);
+    });
+    const unavailableSource = adapters({
+      terra: adapter(async () => accepted("terra", divergentTerra)).adapter,
+      sol: unavailableSol.adapter
+    });
+    const unavailable = await new JudgeOrchestrator(unavailableSource.value).run(authenticatedInput("judge-sol-unavailable-01"));
+    expect(unavailable).toMatchObject({
+      status: "terminal",
+      terminal: "failed_needs_adjudication",
+      code: "ADJUDICATION_REQUIRED",
+      allowance: "refund"
+    });
+    expect(unavailableSol.calls).toBe(1);
   });
 
   it.runIf(profile === "resume-after-terra-sol-capped")("retains accepted partial provider cost, refunds allowance, and never returns a partial verdict", async () => {
@@ -220,6 +236,21 @@ describe("hybrid Judge orchestrator", () => {
     expect(invalid).toMatchObject({ status: "terminal", terminal: "provider_output_invalid", allowance: "refund" });
     if (invalid.status === "terminal") {
       expect(invalid.costs).toEqual(expect.arrayContaining([expect.objectContaining({ role: "terra", outcome: "accepted" })]));
+    }
+
+    const divergentTerra = terraCandidateSchema.parse({ ...terra, holisticIndex: Math.min(100, Math.round(terra.holisticIndex + 20)) });
+    const invalidSol = adapter(async () => accepted("sol", {
+      ...solCandidate(luna, divergentTerra),
+      decisions: []
+    } as unknown as SolCandidate));
+    const invalidSolSource = adapters({
+      terra: adapter(async () => accepted("terra", divergentTerra)).adapter,
+      sol: invalidSol.adapter
+    });
+    const invalidSolResult = await new JudgeOrchestrator(invalidSolSource.value).run(authenticatedInput("judge-invalid-sol-output-01"));
+    expect(invalidSolResult).toMatchObject({ status: "terminal", terminal: "provider_output_invalid", allowance: "refund" });
+    if (invalidSolResult.status === "terminal") {
+      expect(invalidSolResult.costs).toEqual(expect.arrayContaining([expect.objectContaining({ role: "sol", outcome: "accepted" })]));
     }
 
     const piiTerra = terraCandidateSchema.parse({ ...terra, explanation: "model@example.com may be contacted" });
