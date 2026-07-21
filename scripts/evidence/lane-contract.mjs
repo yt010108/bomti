@@ -62,7 +62,9 @@ export async function packageScriptNames(sourceDirectory) {
 
 export function sanitizedCommand(payload, scriptNames) {
   const executable = path.basename(payload[0]);
-  const sanitizedExecutable = safeExecutableNames.has(executable) ? executable : redactedValue;
+  const sanitizedExecutable = safeExecutableNames.has(executable)
+    ? executable.replace(/\.exe$/i, "").replace(/\.cmd$/i, "")
+    : redactedValue;
 
   return payload.map((argument, index) => {
     if (index === 0) return sanitizedExecutable;
@@ -84,6 +86,8 @@ async function trustedRuntimeDirectories(excludedDirectories) {
   const candidates = [path.dirname(process.execPath)];
   if (process.platform === "win32") {
     if (process.env.SystemRoot) candidates.push(path.join(process.env.SystemRoot, "System32"));
+    if (process.env.ProgramW6432) candidates.push(path.join(process.env.ProgramW6432, "Git", "cmd"));
+    if (process.env.ProgramFiles) candidates.push(path.join(process.env.ProgramFiles, "Git", "cmd"));
   } else {
     candidates.push("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin");
   }
@@ -107,7 +111,7 @@ export async function trustedExecutable(name, excludedDirectories) {
   for (const directory of directories) {
     const candidate = path.join(directory, name);
     try {
-      await access(candidate, constants.X_OK);
+      await access(candidate, process.platform === "win32" ? constants.F_OK : constants.X_OK);
       const canonical = await canonicalPath(candidate);
       if (!excludedDirectories.some((excluded) => isWithin(canonical, excluded))) return canonical;
     } catch {

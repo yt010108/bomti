@@ -4,6 +4,12 @@ import { dimensionAggregate } from "./aggregation";
 
 export { dimensionAggregate, dimensionWeights, hybridIndex, requiresSol } from "./aggregation";
 export { buildBaselineVerdict, mergeSolVerdict } from "./merge";
+export { buildCalibrationReport, calibrationInputSchema, calibrationReportSchema } from "./calibration";
+export type {
+  CalibrationChoice,
+  CalibrationRecord,
+  CalibrationReport
+} from "./calibration";
 
 export function projectGuest(candidate: DeepSeekCandidate): GuestProjection {
   const finalIndex = Math.round((dimensionAggregate(candidate) + candidate.holisticIndex) / 2);

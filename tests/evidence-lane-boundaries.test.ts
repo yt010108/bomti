@@ -83,10 +83,14 @@ describe("evidence lane trust boundaries", () => {
     const sourceProbe = path.join(sourceBin, "source-probe");
     const probeOutput = path.join(fixtureRoot, "source-probe-output");
     await mkdir(sourceBin, { recursive: true });
-    await mkdir(callerBin);
     await writeFile(sourceProbe, `#!/bin/sh\nprintf reached > "$1"\n`, "utf8");
     await chmod(sourceProbe, 0o755);
-    await symlink(sourceProbe, path.join(callerBin, "source-probe"));
+    if (process.platform === "win32") {
+      await symlink(sourceBin, callerBin, "junction");
+    } else {
+      await mkdir(callerBin);
+      await symlink(sourceProbe, path.join(callerBin, "source-probe"));
+    }
 
     const result = await runLane(
       repository,
@@ -103,7 +107,7 @@ describe("evidence lane trust boundaries", () => {
   it("runs internal Git and payload tools without a caller PATH", async () => {
     const callerRuntime = path.join(fixtureRoot, "caller-runtime");
     await mkdir(callerRuntime);
-    await symlink("/bin/sh", path.join(callerRuntime, "sh"));
+    if (process.platform !== "win32") await symlink("/bin/sh", path.join(callerRuntime, "sh"));
     const result = await runLane(
       repository,
       sha,

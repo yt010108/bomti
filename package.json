@@ -36,7 +36,7 @@
     "benchmark:pair": "node scripts/verification/fixture.mjs benchmark-pair",
     "benchmark:import": "node scripts/verification/fixture.mjs benchmark-import",
     "benchmark:export": "node scripts/verification/fixture.mjs benchmark-export",
-    "benchmark:report": "node scripts/verification/fixture.mjs benchmark-report"
+    "benchmark:report": "node scripts/verification/benchmark-report.mjs"
   },
   "dependencies": {
     "next": "15.5.20",
