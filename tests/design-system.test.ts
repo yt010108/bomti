@@ -5,8 +5,8 @@ import { EvidenceCard, ScoreMeter, scoreDescriptor } from "../components/bomti";
 
 describe("Bomti design primitives", () => {
   it.each([
-    [0, "밤티 거의 없음"], [24, "밤티 거의 없음"], [25, "살짝 밤티"], [49, "살짝 밤티"],
-    [50, "꽤 밤티"], [74, "꽤 밤티"], [75, "밤티 그 자체"], [100, "밤티 그 자체"]
+    [0, "보완이 필요해요"], [24, "보완이 필요해요"], [25, "다듬으면 좋아요"], [49, "다듬으면 좋아요"],
+    [50, "기본기가 좋아요"], [74, "기본기가 좋아요"], [75, "설득력이 좋아요"], [100, "설득력이 좋아요"]
   ])("maps %i to its exact descriptor", (score, descriptor) => {
     expect(scoreDescriptor(score)).toBe(descriptor);
   });
@@ -17,7 +17,7 @@ describe("Bomti design primitives", () => {
     expect(html).toContain('aria-valuemin="0"');
     expect(html).toContain('aria-valuemax="100"');
     expect(html).toContain('aria-valuenow="67"');
-    expect(html).toContain("꽤 밤티");
+    expect(html).toContain("기본기가 좋아요");
   });
 
   it("escapes evidence instead of rendering it as HTML", () => {

@@ -1,7 +1,5 @@
 import { expect, test, type APIResponse, type BrowserContext, type Page } from "@playwright/test";
 
-// The deterministic auth fixture keeps one-use PKCE state server-local; run
-// its stateful browser scenarios in order without weakening production auth.
 test.describe.configure({ mode: "serial" });
 
 let sequence = 0;
@@ -18,7 +16,8 @@ function cookieValue(header: string | undefined, name: string) {
 }
 
 function responseCookie(response: APIResponse, name: string) {
-  return cookieValue(response.headersArray().filter((header) => header.name.toLowerCase() === "set-cookie").map((header) => header.value).join("; "), name);
+  const setCookie = response.headers()["set-cookie"] ?? response.headersArray().filter((header) => header.name.toLowerCase() === "set-cookie").map((header) => header.value).join("; ");
+  return cookieValue(setCookie, name);
 }
 
 async function installSession(page: Page, context: BrowserContext, fixtureUser: string) {
@@ -35,7 +34,7 @@ async function installSession(page: Page, context: BrowserContext, fixtureUser: 
   return `bomti_session=${session}`;
 }
 
-test("@full-product @auth-history-delete-happy shows owned history, confirms an individual deletion, and completes account deletion", async ({ page, context }) => {
+test("@full-product @auth-history-delete-happy shows owned history, confirms individual deletion, and completes account deletion", async ({ page, context }) => {
   await page.goto("/");
   await installSession(page, context, user("e2e-history"));
   const evaluationId = "11111111-1111-4111-8111-111111111111";
@@ -49,18 +48,18 @@ test("@full-product @auth-history-delete-happy shows owned history, confirms an 
   await page.route("**/api/account", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ terminal: "account_deleted", state: "complete" }) }));
 
   await page.goto("/history");
-  await expect(page.getByRole("heading", { name: "저장된 평가" })).toBeVisible();
-  await expect(page.getByRole("link")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "내 기록" })).toBeVisible();
+  await expect(page.locator(".bomti-history-list a")).toHaveCount(1);
   page.on("dialog", (dialog) => dialog.accept());
   const deletionResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes("/api/evaluations/"));
-  await page.getByRole("button", { name: "평가 삭제" }).click();
+  await page.getByRole("button", { name: "기록 삭제" }).click();
   expect((await deletionResponse).status()).toBe(204);
-  await expect(page.getByText("저장된 평가 이력이 없습니다.")).toBeVisible();
+  await expect(page.getByText("저장된 진단 기록이 아직 없습니다.")).toBeVisible();
 
   await page.goto("/account");
   await page.getByRole("checkbox").check();
   const accountResponse = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().endsWith("/api/account"));
-  await page.getByRole("button", { name: "계정 삭제" }).click();
+  await page.getByRole("button", { name: "계정 영구 삭제" }).click();
   expect((await accountResponse).status()).toBe(200);
   await expect(page.getByText("계정 삭제 요청을 완료했습니다.")).toBeVisible();
 });
@@ -68,6 +67,7 @@ test("@full-product @auth-history-delete-happy shows owned history, confirms an 
 test("@full-product @auth-deletion-saga-security-failures rejects stale sessions immediately after a failure-injected deletion transition", async ({ page, context }) => {
   await page.goto("/");
   const session = await installSession(page, context, user("e2e-deletion"));
+  await context.clearCookies();
   const origin = new URL(page.url()).origin;
   const deletion = await page.request.delete(`${origin}/api/account`, {
     headers: { origin, cookie: session, "x-bomti-test-delete-failure": "sessions_revoked" }
@@ -77,6 +77,11 @@ test("@full-product @auth-deletion-saga-security-failures rejects stale sessions
   const stale = await page.request.get(`${origin}/api/evaluations`, { headers: { cookie: session } });
   expect(stale.status()).toBe(401);
   expect(await stale.json()).toEqual({ error: { code: "SESSION_REVOKED" } });
+  await page.route((url) => url.pathname === "/api/evaluations" && url.searchParams.get("limit") === "20", (route) => route.fulfill({
+    status: 401,
+    contentType: "application/json",
+    body: JSON.stringify({ error: { code: "SESSION_REVOKED" } })
+  }));
   await page.goto("/history");
-  await expect(page.getByText("이력을 불러올 수 없습니다.")).toBeVisible();
+  await expect(page.getByText("진단 기록을 불러오지 못했습니다.")).toBeVisible();
 });

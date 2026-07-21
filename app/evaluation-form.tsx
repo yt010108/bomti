@@ -189,83 +189,53 @@ export function EvaluationForm({
     abortRef.current?.abort();
   }
 
+  function returnToDraft() {
+    setCompletedResult(null);
+    setStatus("idle");
+  }
+
+  if (completedResult) {
+    return (
+      <main className="bomti-result-page">
+        <section className="bomti-container bomti-result-page__shell">
+          <header className="bomti-result-page__intro"><p className="bomti-kicker">◉ 진단 완료</p><h1>지원동기 및 포부 분석 결과</h1><p>제출해주신 자기소개서 문항을 분석했습니다. 구체성과 설득력이 돋보이는 좋은 글입니다.</p></header>
+          <EvaluationResult audience={completedResult.audience} verdict={completedResult.verdict} segments={completedResult.segments} />
+          <div className="bomti-result-page__actions">
+            <a className="bomti-button bomti-button--secondary" href={completedResult.audience === "authenticated" ? "/history" : "/account"}>{completedResult.audience === "authenticated" ? "저장된 결과 보기" : "로그인해 결과 저장하기"}</a>
+            <Button type="button" onClick={returnToDraft}>수정한 답변 다시 진단하기</Button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="bomti-page">
-      <section className="bomti-hero bomti-shell">
-        <div className="bomti-hero__content">
-          <p className="bomti-kicker">AI Career Editor</p>
-          <h1 className="bomti-title">고치기 전에,<br />맥락과 근거부터<br /><em>확인하세요.</em></h1>
-          <p className="bomti-lead">봄티는 자기소개서 답변을 대신 작성하지 않습니다. 질문과 맥락에 비해 상투적이거나 검증하기 어려운 표현을 짚어, 더 설득력 있는 개선 방향을 제안합니다.</p>
-          <div className="bomti-hero__actions">
-            <a className="bomti-button" href="#evaluation-form">내 답변 진단하기 <span aria-hidden="true">→</span></a>
-            <a className="bomti-text-link" href="#how-it-works">어떻게 진단하나요?</a>
+    <main className="bomti-diagnosis-page">
+      <section className="bomti-container bomti-diagnosis-shell">
+        <header className="bomti-diagnosis-intro"><h1>답변 진단하기</h1><p>지원하고자 하는 직무와 경험을 바탕으로 질문과 답변을 작성해주세요.</p></header>
+        <div className="bomti-diagnosis-layout">
+          <div className="bomti-diagnosis-main">
+            <form id="diagnosis-form" className="bomti-form-card bomti-stack" onSubmit={submit} noValidate aria-describedby="evaluation-status">
+              <FormField id="question" label="자기소개서·면접 질문" placeholder="예: 본인의 가장 큰 장점과 단점은 무엇인가요?" value={values.question} onChange={(event) => setValue("question", event.target.value)} error={errors.question} maxLength={limits.question} currentLength={codePointLength(values.question)} />
+              <FormField id="answer" label="나의 답변" placeholder="자신의 경험을 바탕으로 구체적으로 작성해주세요." description={fixtureAudience === "guest" ? "비로그인 미리보기는 최대 1,500자입니다." : "인증 사용자는 최대 6,000자까지 평가할 수 있습니다."} value={values.answer} onChange={(event) => setValue("answer", event.target.value)} error={errors.answer} multiline rows={6} maxLength={answerLimit} currentLength={codePointLength(values.answer)} />
+              <div className="bomti-form-row">
+                <FormField id="target-role" label="지원 직무" placeholder="예: 프론트엔드 개발자" value={values.targetRole} onChange={(event) => setValue("targetRole", event.target.value)} error={errors.targetRole} maxLength={limits.targetRole} currentLength={codePointLength(values.targetRole)} />
+                <FormField id="job-company-context" label="회사·공고 맥락" placeholder="예: 스타트업, 3년차 이상" value={values.jobCompanyContext} onChange={(event) => setValue("jobCompanyContext", event.target.value)} error={errors.jobCompanyContext} maxLength={limits.jobCompanyContext} currentLength={codePointLength(values.jobCompanyContext)} />
+              </div>
+              <FormField id="experience-evidence" label="경험 근거" placeholder="답변을 뒷받침할 수 있는 구체적인 프로젝트나 경험을 요약해주세요." description="선택 항목입니다." value={values.experienceEvidence} onChange={(event) => setValue("experienceEvidence", event.target.value)} error={errors.experienceEvidence} multiline rows={3} optional maxLength={limits.experienceEvidence} currentLength={codePointLength(values.experienceEvidence)} />
+            </form>
+            <section className="bomti-consent-card bomti-stack"><ConsentControl value={consent} onChange={setConsent} disabled={status === "submitting"} /><div className="bomti-inline bomti-form-actions"><Button form="diagnosis-form" type="submit" disabled={!canSubmit} loading={status === "submitting"} className="bomti-diagnosis-submit">▣ 답변 진단하기</Button>{status === "submitting" ? <Button type="button" variant="secondary" onClick={cancel}>요청 취소</Button> : null}</div></section>
           </div>
-          <ul className="bomti-trust-list" aria-label="서비스 특징">
-            <li><span aria-hidden="true">✓</span> 가명처리 후 분석</li>
-            <li><span aria-hidden="true">✓</span> 저장 여부 직접 선택</li>
-          </ul>
-        </div>
-        <aside className="bomti-hero-preview" aria-label="분석 결과 미리보기">
-          <div className="bomti-hero-preview__bar"><span>답변 분석 리포트</span><span className="bomti-preview-dot" aria-hidden="true" /></div>
-          <div className="bomti-hero-preview__body">
-            <div className="bomti-preview-score"><span>설득력 지수</span><strong>85<small>/100</small></strong><em>좋은 출발이에요</em></div>
-            <div className="bomti-preview-lines" aria-hidden="true"><i /><i /><i /><i /></div>
-            <div className="bomti-preview-note"><span>개선 포인트</span><p>행동과 결과를 한 문장 더 연결해 보세요.</p></div>
-          </div>
-          <div className="bomti-hero-preview__footer"><span>맥락</span><span>근거</span><span>표현</span></div>
-        </aside>
-      </section>
-
-      <section className="bomti-how-it-works" id="how-it-works">
-        <div className="bomti-shell">
-          <p className="bomti-kicker">How it works</p>
-          <div className="bomti-how-it-works__heading"><h2>한 답변에 필요한<br />세 가지 확인.</h2><p>문장을 고치기 전에 무엇이 비어 있는지, 무엇이 이미 좋은지부터 분명하게 확인합니다.</p></div>
-          <ol className="bomti-step-list">
-            <li><span>01</span><strong>맥락을 입력해요</strong><p>질문, 지원 직무, 공고의 중요한 조건을 함께 살핍니다.</p></li>
-            <li><span>02</span><strong>답변을 진단해요</strong><p>상투성, 구체성, 근거와 읽기 흐름을 차분하게 확인합니다.</p></li>
-            <li><span>03</span><strong>다음 문장을 정해요</strong><p>문장 근거와 함께, 바로 적용할 개선 방향을 제안합니다.</p></li>
-          </ol>
-        </div>
-      </section>
-
-      <section className="bomti-workspace bomti-shell" id="evaluation-form">
-        <div className="bomti-workspace__intro">
-          <div><p className="bomti-kicker">Answer workspace</p><h2>이제, 답변을<br />천천히 살펴볼까요?</h2></div>
-          <p>필수 동의를 확인한 뒤 평가할 수 있어요. 입력한 원문은 서버 로그에 저장하지 않습니다.</p>
-        </div>
-        <div className="bomti-evaluation-layout">
-        <form className="bomti-panel bomti-editor bomti-stack" onSubmit={submit} noValidate aria-describedby="evaluation-status">
-          <div className="bomti-section-heading">
-            <div><p className="bomti-kicker">Your draft</p><h2>평가할 답변을 알려 주세요</h2></div>
-            <span className="bomti-mode">{fixtureAudience === "guest" ? "비로그인 미리보기" : "인증 사용자 fixture"}</span>
-          </div>
-          <FormField id="question" label="자기소개서 질문" description="지원서 문항의 의도를 그대로 적어 주세요." value={values.question} onChange={(event) => setValue("question", event.target.value)} error={errors.question} multiline maxLength={limits.question} currentLength={codePointLength(values.question)} />
-          <FormField id="answer" label="자기소개서 답변" description={fixtureAudience === "guest" ? "비로그인 미리보기는 최대 1,500자입니다." : "인증 사용자는 최대 6,000자까지 평가할 수 있습니다."} value={values.answer} onChange={(event) => setValue("answer", event.target.value)} error={errors.answer} multiline maxLength={answerLimit} currentLength={codePointLength(values.answer)} />
-          <FormField id="target-role" label="지원 직무" description="예: 백엔드 개발자, 정보보호 담당자" value={values.targetRole} onChange={(event) => setValue("targetRole", event.target.value)} error={errors.targetRole} maxLength={limits.targetRole} currentLength={codePointLength(values.targetRole)} />
-          <FormField id="job-company-context" label="회사·공고 맥락" description="조직, 공고, 역할에서 특히 중요한 조건을 적어 주세요." value={values.jobCompanyContext} onChange={(event) => setValue("jobCompanyContext", event.target.value)} error={errors.jobCompanyContext} multiline maxLength={limits.jobCompanyContext} currentLength={codePointLength(values.jobCompanyContext)} />
-          <FormField id="experience-evidence" label="경험 근거" description="선택 항목입니다. 숫자, 역할, 결과처럼 검증 가능한 근거를 적을 수 있습니다." value={values.experienceEvidence} onChange={(event) => setValue("experienceEvidence", event.target.value)} error={errors.experienceEvidence} multiline optional maxLength={limits.experienceEvidence} currentLength={codePointLength(values.experienceEvidence)} />
-
-          <div className="bomti-consent-section bomti-stack"><div><p className="bomti-kicker">Privacy choices</p><h3 className="bomti-subheading">명시적 동의</h3></div><ConsentControl value={consent} onChange={setConsent} disabled={status === "submitting"} /></div>
-          <div className="bomti-inline bomti-form-actions">
-            <Button type="submit" disabled={!canSubmit} loading={status === "submitting"}>답변 진단하기 <span aria-hidden="true">→</span></Button>
-            {status === "submitting" ? <Button type="button" variant="secondary" onClick={cancel}>요청 취소</Button> : null}
-          </div>
-          {completedResult ? <EvaluationResult audience={completedResult.audience} verdict={completedResult.verdict} segments={completedResult.segments} /> : null}
-        </form>
-
-        <aside className="bomti-side-stack" aria-label="평가 전 안내">
-          <section className="bomti-panel bomti-guide-card bomti-stack">
-            <div><p className="bomti-kicker">Before you start</p><h2>진단 전 확인</h2></div>
-            <dl className="bomti-facts">
-              <div><dt>현재 제공자</dt><dd>{fixtureEnabled ? "결정적 로컬 fixture" : fixtureAudience === "guest" ? "무료 guest provider 설정 필요" : "인증 provider 설정 필요"}</dd></div>
-              <div><dt>무료 모델 데이터 이용</dt><dd>가명처리된 입력만 전송하며 원문을 서버 로그나 평가 이력에 저장하지 않습니다.</dd></div>
-              <div><dt>보존·삭제</dt><dd>guest 결과는 저장하지 않습니다. 인증 완료 평가만 삭제 가능한 이력이 될 수 있습니다.</dd></div>
-              <div><dt>benchmark</dt><dd>보수적 비식별 검토를 통과한 인증 평가만 소유자와 연결할 수 없는 내부 보정에 사용할 수 있습니다.</dd></div>
+          <aside className="bomti-guide-panel" aria-label="진단 가이드">
+            <h2><span aria-hidden="true">ⓘ</span> 진단 가이드</h2>
+            <dl>
+              <div><dt><span aria-hidden="true">◉</span> 분석 기준</dt><dd>직무 적합성, 논리적 흐름, 구체성, 그리고 표현의 명확성을 기준으로 분석합니다.</dd></div>
+              <div><dt><span aria-hidden="true">⌛</span> 게스트 제한</dt><dd>{fixtureAudience === "guest" ? "비로그인 상태에서는 브라우저당 정해진 횟수만 진단할 수 있습니다." : "인증 사용자는 더 긴 답변을 진단하고 이력을 관리할 수 있습니다."}</dd></div>
+              <div><dt><span aria-hidden="true">♢</span> 프라이버시 FAQ</dt><dd>입력하신 데이터는 가명처리되어 분석되며 원문을 서버 로그에 저장하지 않습니다.</dd></div>
             </dl>
-          </section>
-          <section id="evaluation-status" aria-live="polite"><StatusBanner tone={message.tone} title={message.title}>{message.description}</StatusBanner></section>
-        </aside>
-      </div>
+            <section id="evaluation-status" aria-live="polite"><StatusBanner tone={message.tone} title={message.title}>{message.description}</StatusBanner></section>
+          </aside>
+        </div>
       </section>
     </main>
   );
