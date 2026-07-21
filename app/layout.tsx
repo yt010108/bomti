@@ -12,7 +12,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ko">
-      <body>
+      <body data-bomti-fixture={process.env.BOMTI_API_TEST_MODE === "true" ? "true" : "false"}>
         {process.env.NODE_ENV === "development" ? <DevClientInstrumentation /> : null}
         {children}
       </body>
