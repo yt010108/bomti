@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { Button, ConsentControl, emptyConsentValue, FormField, StatusBanner, type ConsentValue } from "../components/bomti";
+import { Button, ConsentControl, emptyConsentValue, EvaluationResult, FormField, StatusBanner, type ConsentValue } from "../components/bomti";
 import { EvaluationInputError, validateEvaluationInput } from "../lib/contracts/evaluation";
 import { codePointLength } from "../lib/contracts/text";
 
 type Audience = "guest" | "authenticated";
 type FormStatus = "idle" | "validating" | "submitting" | "cancelled" | "success" | "network" | "provider" | "budget" | "quota" | "invalid";
 type FormValues = Record<"question" | "answer" | "targetRole" | "jobCompanyContext" | "experienceEvidence", string>;
+type CompletedResult = { audience: Audience; verdict: Parameters<typeof EvaluationResult>[0]["verdict"]; segments: readonly { segmentId: string; text: string }[] };
 
 const blankValues: FormValues = {
   question: "",
@@ -37,6 +38,21 @@ const errorMessages: Record<string, string> = {
   JOBCOMPANYCONTEXT_TOO_LONG: "회사·공고 맥락은 5,000자 이하로 입력해 주세요.",
   EXPERIENCEEVIDENCE_TOO_LONG: "경험 근거는 6,000자 이하로 입력해 주세요."
 };
+
+function fixtureResult(score: number): CompletedResult {
+  const dimensions = { contextMismatch: score, genericityCliche: score, credibilityRisk: score, specificityGap: score, toneReadabilityRisk: score };
+  return {
+    audience: "guest",
+    segments: [],
+    verdict: {
+      finalIndex: score,
+      dimensions,
+      explanation: "합성 fixture 결과입니다.",
+      evidence: [{ segmentId: "s0001", dimension: "genericityCliche", summary: "검증된 문장 근거입니다.", severity: score }],
+      improvements: [{ dimension: "genericityCliche", direction: "행동과 결과를 함께 제시해 주세요.", example: "상황, 행동, 결과를 연결합니다." }]
+    }
+  };
+}
 
 function errorFor(code: string): Partial<Record<keyof FormValues, string>> {
   if (code.startsWith("QUESTION_")) return { question: errorMessages[code] };
@@ -70,16 +86,19 @@ function statusMessage(status: FormStatus, audience: Audience) {
 export function EvaluationForm({
   fixtureEnabled,
   fixtureAudience,
-  fixtureScenario
+  fixtureScenario,
+  fixtureResultScore
 }: {
   fixtureEnabled: boolean;
   fixtureAudience: Audience;
   fixtureScenario?: string;
+  fixtureResultScore?: number;
 }) {
   const [values, setValues] = useState<FormValues>(blankValues);
   const [consent, setConsent] = useState<ConsentValue>(emptyConsentValue);
   const [errors, setErrors] = useState<Partial<Record<keyof FormValues, string>>>({});
   const [status, setStatus] = useState<FormStatus>(fixtureScenario === "budget-disabled" ? "budget" : "idle");
+  const [completedResult, setCompletedResult] = useState<CompletedResult | null>(() => fixtureResultScore === undefined ? null : fixtureResult(fixtureResultScore));
   const abortRef = useRef<AbortController | null>(null);
   const fixtureGuestId = useRef<string | null>(null);
   if (fixtureGuestId.current === null) fixtureGuestId.current = crypto.randomUUID();
@@ -155,6 +174,9 @@ export function EvaluationForm({
         } else setStatus("network");
         return;
       }
+      const payload = await response.json() as { audience: Audience; verdict?: CompletedResult["verdict"]; evaluation?: { verdict: CompletedResult["verdict"]; input: { answerSegments: CompletedResult["segments"] } } };
+      if (payload.audience === "guest" && payload.verdict) setCompletedResult({ audience: "guest", verdict: payload.verdict, segments: [] });
+      if (payload.audience === "authenticated" && payload.evaluation) setCompletedResult({ audience: "authenticated", verdict: payload.evaluation.verdict, segments: payload.evaluation.input.answerSegments });
       setStatus("success");
     } catch (error) {
       setStatus(error instanceof DOMException && error.name === "AbortError" ? "cancelled" : "network");
@@ -192,6 +214,7 @@ export function EvaluationForm({
             <Button type="submit" disabled={!canSubmit} loading={status === "submitting"}>평가하기</Button>
             {status === "submitting" ? <Button type="button" variant="secondary" onClick={cancel}>요청 취소</Button> : null}
           </div>
+          {completedResult ? <EvaluationResult audience={completedResult.audience} verdict={completedResult.verdict} segments={completedResult.segments} /> : null}
         </form>
 
         <aside className="bomti-side-stack" aria-label="평가 전 안내">

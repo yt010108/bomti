@@ -6,7 +6,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
 
-const allowedProfiles = new Set(["primitive-showcase", "fixture-color-only-meter"]);
+const allowedProfiles = new Set(["primitive-showcase", "fixture-color-only-meter", "result-boundaries"]);
 
 function parseViewportList(value) {
   const widths = String(value ?? "375,768,1280").split(",").map(Number);
@@ -68,6 +68,7 @@ async function stopService(child) {
 function urlForState(baseUrl, profile, state) {
   const url = new URL(baseUrl);
   if (profile === "fixture-color-only-meter") url.searchParams.set("fixture", "color-only-meter");
+  else if (profile === "result-boundaries") url.searchParams.set("scenario", `result-${state}`);
   else if (state !== "default") url.searchParams.set("state", state);
   return url.toString();
 }

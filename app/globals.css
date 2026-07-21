@@ -161,6 +161,13 @@ textarea {
   border-top: 1px solid var(--line);
 }
 
+.bomti-result { margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--ink); }
+.bomti-result__explanation { margin: 0; font-size: 1.0625rem; overflow-wrap: anywhere; }
+.bomti-empty { margin: 0; color: var(--muted); }
+.bomti-improvements { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.bomti-improvements li { display: grid; gap: 3px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-control); overflow-wrap: anywhere; }
+.bomti-improvements em { color: var(--muted); font-style: normal; }
+
 .bomti-showcase-grid {
   display: grid;
   gap: 24px;

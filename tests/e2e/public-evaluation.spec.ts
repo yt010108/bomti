@@ -31,6 +31,8 @@ test("@public-form-happy displays provider and quota before a keyboard-accessibl
   await page.getByRole("button", { name: "평가하기" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByText("평가 요청을 마쳤습니다")).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  await expect(page.getByText("문장 근거")).toBeVisible();
   await page.goto("/?fixture=auth");
   await expect(page.getByText("이번 캠페인에서 3회")).toBeVisible();
   await fillRequiredFields(page);
