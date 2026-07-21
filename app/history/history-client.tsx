@@ -43,13 +43,13 @@ export function HistoryClient() {
 
   return (
     <main className="bomti-shell bomti-stack">
-      <header className="bomti-page-header"><p className="bomti-kicker">이력</p><h1 className="bomti-title">저장된 평가</h1><p className="bomti-lead">완료된 인증 평가만 가명처리된 내용으로 보관합니다.</p></header>
-      {usage ? <p className="bomti-mode">이번 캠페인 잔여 횟수: {usage.remaining} / {usage.allowance}</p> : null}
-      <p role="status">{status}</p>
-      <ul className="bomti-improvements" aria-label="평가 이력">
+      <header className="bomti-page-header"><p className="bomti-kicker">My workspace</p><h1 className="bomti-title">저장된<br />평가 이력</h1><p className="bomti-lead">완료된 인증 평가만 가명처리된 내용으로 보관합니다. 필요할 때 한 건씩 다시 확인하거나 삭제할 수 있어요.</p></header>
+      {usage ? <section className="bomti-history-summary" aria-label="이번 캠페인 사용량"><div><p>이번 캠페인에서 남은 진단</p><strong>{usage.remaining}회 남았어요</strong></div><span className="bomti-mode">총 {usage.allowance}회 중 {usage.consumed}회 사용</span></section> : null}
+      {status ? <p className="bomti-empty" role="status">{status}</p> : null}
+      <ul className="bomti-history-list" aria-label="평가 이력">
         {history.map((evaluation) => (
           <li key={evaluation.id}>
-            <Link href={`/history/${encodeURIComponent(evaluation.id)}`}>{new Date(evaluation.createdAt).toLocaleDateString("ko-KR")} · {evaluation.verdict.finalIndex}점 · {evaluation.verdict.descriptor}</Link>
+            <Link href={`/history/${encodeURIComponent(evaluation.id)}`}><span>{new Date(evaluation.createdAt).toLocaleDateString("ko-KR")}</span><span>{evaluation.verdict.descriptor} · {evaluation.verdict.finalIndex}점</span></Link>
             <button type="button" className="bomti-button bomti-button--secondary" onClick={() => void remove(evaluation.id)}>평가 삭제</button>
           </li>
         ))}

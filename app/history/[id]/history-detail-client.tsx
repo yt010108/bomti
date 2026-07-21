@@ -19,5 +19,5 @@ export function HistoryDetailClient({ id }: { id: string }) {
     });
   }, [id]);
 
-  return <main className="bomti-shell bomti-stack"><h1 className="bomti-title">평가 상세</h1>{status ? <p role="status">{status}</p> : null}{evaluation ? <section className="bomti-panel bomti-stack"><p>{new Date(evaluation.createdAt).toLocaleDateString("ko-KR")}</p><p>{evaluation.verdict.finalIndex}점 · {evaluation.verdict.descriptor}</p><p>{evaluation.verdict.explanation}</p></section> : null}</main>;
+  return <main className="bomti-shell bomti-stack"><header className="bomti-page-header"><p className="bomti-kicker">Saved evaluation</p><h1 className="bomti-title">평가 상세</h1></header>{status ? <p className="bomti-empty" role="status">{status}</p> : null}{evaluation ? <section className="bomti-panel bomti-stack"><span className="bomti-mode">{new Date(evaluation.createdAt).toLocaleDateString("ko-KR")}</span><h2>{evaluation.verdict.descriptor} · {evaluation.verdict.finalIndex}점</h2><p className="bomti-result__explanation">{evaluation.verdict.explanation}</p></section> : null}</main>;
 }

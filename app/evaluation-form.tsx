@@ -190,17 +190,53 @@ export function EvaluationForm({
   }
 
   return (
-    <main className="bomti-shell">
-      <header className="bomti-page-header">
-        <p className="bomti-kicker">Bomti · 한 답변 평가</p>
-        <h1 className="bomti-title">고쳐 쓰기 전에, 맥락과 근거부터 확인하세요.</h1>
-        <p className="bomti-lead">밤티는 자기소개서 답변을 대신 작성하지 않습니다. 질문과 맥락에 비해 상투적이거나 검증하기 어려운 표현을 짚어 개선 방향을 제안합니다.</p>
-      </header>
+    <main className="bomti-page">
+      <section className="bomti-hero bomti-shell">
+        <div className="bomti-hero__content">
+          <p className="bomti-kicker">AI Career Editor</p>
+          <h1 className="bomti-title">고치기 전에,<br />맥락과 근거부터<br /><em>확인하세요.</em></h1>
+          <p className="bomti-lead">봄티는 자기소개서 답변을 대신 작성하지 않습니다. 질문과 맥락에 비해 상투적이거나 검증하기 어려운 표현을 짚어, 더 설득력 있는 개선 방향을 제안합니다.</p>
+          <div className="bomti-hero__actions">
+            <a className="bomti-button" href="#evaluation-form">내 답변 진단하기 <span aria-hidden="true">→</span></a>
+            <a className="bomti-text-link" href="#how-it-works">어떻게 진단하나요?</a>
+          </div>
+          <ul className="bomti-trust-list" aria-label="서비스 특징">
+            <li><span aria-hidden="true">✓</span> 가명처리 후 분석</li>
+            <li><span aria-hidden="true">✓</span> 저장 여부 직접 선택</li>
+          </ul>
+        </div>
+        <aside className="bomti-hero-preview" aria-label="분석 결과 미리보기">
+          <div className="bomti-hero-preview__bar"><span>답변 분석 리포트</span><span className="bomti-preview-dot" aria-hidden="true" /></div>
+          <div className="bomti-hero-preview__body">
+            <div className="bomti-preview-score"><span>설득력 지수</span><strong>85<small>/100</small></strong><em>좋은 출발이에요</em></div>
+            <div className="bomti-preview-lines" aria-hidden="true"><i /><i /><i /><i /></div>
+            <div className="bomti-preview-note"><span>개선 포인트</span><p>행동과 결과를 한 문장 더 연결해 보세요.</p></div>
+          </div>
+          <div className="bomti-hero-preview__footer"><span>맥락</span><span>근거</span><span>표현</span></div>
+        </aside>
+      </section>
 
-      <div className="bomti-evaluation-layout">
-        <form className="bomti-panel bomti-stack" onSubmit={submit} noValidate aria-describedby="evaluation-status">
+      <section className="bomti-how-it-works" id="how-it-works">
+        <div className="bomti-shell">
+          <p className="bomti-kicker">How it works</p>
+          <div className="bomti-how-it-works__heading"><h2>한 답변에 필요한<br />세 가지 확인.</h2><p>문장을 고치기 전에 무엇이 비어 있는지, 무엇이 이미 좋은지부터 분명하게 확인합니다.</p></div>
+          <ol className="bomti-step-list">
+            <li><span>01</span><strong>맥락을 입력해요</strong><p>질문, 지원 직무, 공고의 중요한 조건을 함께 살핍니다.</p></li>
+            <li><span>02</span><strong>답변을 진단해요</strong><p>상투성, 구체성, 근거와 읽기 흐름을 차분하게 확인합니다.</p></li>
+            <li><span>03</span><strong>다음 문장을 정해요</strong><p>문장 근거와 함께, 바로 적용할 개선 방향을 제안합니다.</p></li>
+          </ol>
+        </div>
+      </section>
+
+      <section className="bomti-workspace bomti-shell" id="evaluation-form">
+        <div className="bomti-workspace__intro">
+          <div><p className="bomti-kicker">Answer workspace</p><h2>이제, 답변을<br />천천히 살펴볼까요?</h2></div>
+          <p>필수 동의를 확인한 뒤 평가할 수 있어요. 입력한 원문은 서버 로그에 저장하지 않습니다.</p>
+        </div>
+        <div className="bomti-evaluation-layout">
+        <form className="bomti-panel bomti-editor bomti-stack" onSubmit={submit} noValidate aria-describedby="evaluation-status">
           <div className="bomti-section-heading">
-            <div><p className="bomti-kicker">입력</p><h2>평가할 답변을 알려 주세요</h2></div>
+            <div><p className="bomti-kicker">Your draft</p><h2>평가할 답변을 알려 주세요</h2></div>
             <span className="bomti-mode">{fixtureAudience === "guest" ? "비로그인 미리보기" : "인증 사용자 fixture"}</span>
           </div>
           <FormField id="question" label="자기소개서 질문" description="지원서 문항의 의도를 그대로 적어 주세요." value={values.question} onChange={(event) => setValue("question", event.target.value)} error={errors.question} multiline maxLength={limits.question} currentLength={codePointLength(values.question)} />
@@ -209,17 +245,17 @@ export function EvaluationForm({
           <FormField id="job-company-context" label="회사·공고 맥락" description="조직, 공고, 역할에서 특히 중요한 조건을 적어 주세요." value={values.jobCompanyContext} onChange={(event) => setValue("jobCompanyContext", event.target.value)} error={errors.jobCompanyContext} multiline maxLength={limits.jobCompanyContext} currentLength={codePointLength(values.jobCompanyContext)} />
           <FormField id="experience-evidence" label="경험 근거" description="선택 항목입니다. 숫자, 역할, 결과처럼 검증 가능한 근거를 적을 수 있습니다." value={values.experienceEvidence} onChange={(event) => setValue("experienceEvidence", event.target.value)} error={errors.experienceEvidence} multiline optional maxLength={limits.experienceEvidence} currentLength={codePointLength(values.experienceEvidence)} />
 
-          <div className="bomti-stack"><h3 className="bomti-subheading">명시적 동의</h3><ConsentControl value={consent} onChange={setConsent} disabled={status === "submitting"} /></div>
+          <div className="bomti-consent-section bomti-stack"><div><p className="bomti-kicker">Privacy choices</p><h3 className="bomti-subheading">명시적 동의</h3></div><ConsentControl value={consent} onChange={setConsent} disabled={status === "submitting"} /></div>
           <div className="bomti-inline bomti-form-actions">
-            <Button type="submit" disabled={!canSubmit} loading={status === "submitting"}>평가하기</Button>
+            <Button type="submit" disabled={!canSubmit} loading={status === "submitting"}>답변 진단하기 <span aria-hidden="true">→</span></Button>
             {status === "submitting" ? <Button type="button" variant="secondary" onClick={cancel}>요청 취소</Button> : null}
           </div>
           {completedResult ? <EvaluationResult audience={completedResult.audience} verdict={completedResult.verdict} segments={completedResult.segments} /> : null}
         </form>
 
         <aside className="bomti-side-stack" aria-label="평가 전 안내">
-          <section className="bomti-panel bomti-stack">
-            <h2>평가 전 확인</h2>
+          <section className="bomti-panel bomti-guide-card bomti-stack">
+            <div><p className="bomti-kicker">Before you start</p><h2>진단 전 확인</h2></div>
             <dl className="bomti-facts">
               <div><dt>현재 제공자</dt><dd>{fixtureEnabled ? "결정적 로컬 fixture" : fixtureAudience === "guest" ? "무료 guest provider 설정 필요" : "인증 provider 설정 필요"}</dd></div>
               <div><dt>무료 모델 데이터 이용</dt><dd>가명처리된 입력만 전송하며 원문을 서버 로그나 평가 이력에 저장하지 않습니다.</dd></div>
@@ -230,6 +266,7 @@ export function EvaluationForm({
           <section id="evaluation-status" aria-live="polite"><StatusBanner tone={message.tone} title={message.title}>{message.description}</StatusBanner></section>
         </aside>
       </div>
+      </section>
     </main>
   );
 }
