@@ -19,7 +19,7 @@
     "test:providers": "node scripts/verification/providers.mjs",
     "preflight:providers": "node scripts/preflight/providers.mjs",
     "test:judge": "node scripts/verification/judge.mjs",
-    "test:api": "node scripts/verification/fixture.mjs api",
+    "test:api": "node scripts/verification/api.mjs",
     "visual:qa": "node scripts/verification/visual.mjs",
     "qa:final": "node scripts/verification/fixture.mjs final-qa",
     "evidence:lane": "node scripts/evidence/lane.mjs",
