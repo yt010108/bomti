@@ -10,10 +10,6 @@ const futureProfiles = {
   traceability: ["final"],
   security: ["final-adversarial"],
   scope: ["final"],
-  operations: [
-    "link-free-vercel-migration-backup-restore",
-    "paused-db-missing-model-disabled-budget-expired-oauth-provider429-corrupt-backup"
-  ],
   "independent-review": ["readonly-final"]
 };
 

@@ -35,7 +35,7 @@ async function installSession(page: Page, context: BrowserContext, fixtureUser: 
   return `bomti_session=${session}`;
 }
 
-test("@auth-history-delete-happy shows owned history, confirms an individual deletion, and completes account deletion", async ({ page, context }) => {
+test("@full-product @auth-history-delete-happy shows owned history, confirms an individual deletion, and completes account deletion", async ({ page, context }) => {
   await page.goto("/");
   await installSession(page, context, user("e2e-history"));
   const evaluationId = "11111111-1111-4111-8111-111111111111";
@@ -65,7 +65,7 @@ test("@auth-history-delete-happy shows owned history, confirms an individual del
   await expect(page.getByText("계정 삭제 요청을 완료했습니다.")).toBeVisible();
 });
 
-test("@auth-deletion-saga-security-failures rejects stale sessions immediately after a failure-injected deletion transition", async ({ page, context }) => {
+test("@full-product @auth-deletion-saga-security-failures rejects stale sessions immediately after a failure-injected deletion transition", async ({ page, context }) => {
   await page.goto("/");
   const session = await installSession(page, context, user("e2e-deletion"));
   const origin = new URL(page.url()).origin;

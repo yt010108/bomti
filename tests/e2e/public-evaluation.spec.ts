@@ -14,7 +14,7 @@ async function consent(page: Page) {
   await expect(all).toBeChecked();
 }
 
-test("@public-form-happy @result-a11y-feedback displays provider and quota before a keyboard-accessible guest submission", async ({ page }) => {
+test("@full-product @public-form-happy @result-a11y-feedback displays provider and quota before a keyboard-accessible guest submission", async ({ page }) => {
   const browserLogs: string[] = [];
   page.on("console", (message) => browserLogs.push(message.text()));
   for (const width of [375, 768, 1280]) {
@@ -43,7 +43,7 @@ test("@public-form-happy @result-a11y-feedback displays provider and quota befor
   expect(browserLogs.join("\n")).not.toContain("browser-raw-sentinel@example.com");
 });
 
-test("@result-invalid-segment-xss rejects invalid evidence IDs and keeps provider text inert", async ({ page }) => {
+test("@full-product @result-invalid-segment-xss rejects invalid evidence IDs and keeps provider text inert", async ({ page }) => {
   let requestCount = 0;
   await page.route("**/api/evaluations", async (route) => {
     requestCount += 1;
@@ -79,7 +79,7 @@ test("@result-invalid-segment-xss rejects invalid evidence IDs and keeps provide
   expect(await page.evaluate(() => (window as Window & { __bomtiXss?: boolean }).__bomtiXss)).toBeUndefined();
 });
 
-test("@guest-preview-failures exposes provider, network, and cancel states without fallback", async ({ page }) => {
+test("@full-product @guest-preview-failures exposes provider, network, and cancel states without fallback", async ({ page }) => {
   await page.goto("/?scenario=provider-unavailable");
   await fillRequiredFields(page);
   await consent(page);
@@ -101,7 +101,7 @@ test("@guest-preview-failures exposes provider, network, and cancel states witho
   await expect(page.getByText("평가 요청을 취소했습니다")).toBeVisible();
 });
 
-test("@consent-validation-failures keeps submit disabled until all consent and links validation errors", async ({ page }) => {
+test("@full-product @consent-validation-failures keeps submit disabled until all consent and links validation errors", async ({ page }) => {
   await page.goto("/?scenario=budget-disabled");
   await expect(page.getByText("평가 예산이 비활성화되었습니다")).toBeVisible();
   await expect(page.getByRole("button", { name: "평가하기" })).toBeDisabled();

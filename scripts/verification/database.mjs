@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
@@ -16,6 +16,11 @@ const profiles = new Set([
 ]);
 const supabaseArguments = ["node_modules/supabase/dist/supabase.js"];
 const generatedTypesPath = "lib/database/generated.types.ts";
+const localCliEnvironment = {
+  ...process.env,
+  SUPABASE_DISABLE_TELEMETRY: "1",
+  DO_NOT_TRACK: "1"
+};
 const failureReceipts = {
   DATABASE_UNAVAILABLE: { code: "DATABASE_UNAVAILABLE", verdict: "blocked" },
   GENERATED_TYPES_STALE: { code: "GENERATED_TYPES_STALE", verdict: "fail" },
@@ -29,15 +34,97 @@ const failureReceipts = {
 
 function command(commandArguments, options = {}) {
   return execFileAsync(process.execPath, commandArguments, {
+    ...options,
     cwd: process.cwd(),
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
-    ...options
+    env: { ...localCliEnvironment, ...options.env }
   });
 }
 
 function supabase(...arguments_) {
   return command([...supabaseArguments, ...arguments_]);
+}
+
+async function localPostgresContainer() {
+  const { stdout } = await execFileAsync("docker", [
+    "ps",
+    "--filter",
+    "name=supabase_db_bomti",
+    "--format",
+    "{{.Names}}"
+  ], { encoding: "utf8", windowsHide: true });
+  const container = stdout.trim().split(/\r?\n/u).find(Boolean);
+  if (!container) throw new Error("DATABASE_START_FAILED");
+  return container;
+}
+
+async function waitForLocalPostgres() {
+  for (let attempt = 0; attempt < 45; attempt += 1) {
+    try {
+      const container = await localPostgresContainer();
+      await execFileAsync("docker", ["exec", container, "pg_isready", "-U", "postgres", "-d", "postgres"], {
+        encoding: "utf8",
+        windowsHide: true
+      });
+      return;
+    } catch {
+      await delay(500);
+    }
+  }
+  throw new Error("DATABASE_SERVICES_NOT_READY");
+}
+
+async function resetLocalDatabase() {
+  await supabase("start");
+  await waitForLocalPostgres();
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [...supabaseArguments, "db", "reset", "--local"], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      env: localCliEnvironment
+    });
+    let output = "";
+    let settled = false;
+    let finishScheduled = false;
+    let migrationObserved = false;
+    const settle = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      if (error) reject(error);
+      else resolve();
+    };
+    const finishAfterRestart = () => {
+      if (finishScheduled) return;
+      finishScheduled = true;
+      setTimeout(() => {
+        child.unref();
+        settle();
+      }, 2_000);
+    };
+    const onOutput = (chunk) => {
+      output += chunk.toString();
+      if (output.includes("Restarting containers...")) finishAfterRestart();
+      if (!migrationObserved && output.includes("Applying migration 20260721000000_usage_budget_state_machine.sql...")) {
+        migrationObserved = true;
+        const fallback = setTimeout(finishAfterRestart, 30_000);
+        fallback.unref();
+      }
+    };
+    const timeout = setTimeout(() => settle(new Error("DATABASE_RESET_TIMEOUT")), 60_000);
+    child.stdout?.on("data", onOutput);
+    child.stderr?.on("data", onOutput);
+    child.once("error", (error) => settle(error));
+    child.once("exit", (code) => {
+      if (code === 0) settle();
+      else settle(new Error(`DATABASE_RESET_EXIT_${String(code)}`));
+    });
+  });
+  await waitForLocalPostgres();
 }
 
 function normalizeTypes(value) {
@@ -132,12 +219,13 @@ async function localStatus() {
 }
 
 async function resetAndVerifyTypes() {
-  await supabase("db", "reset", "--local");
+  await resetLocalDatabase();
   // On Windows, `db reset` can recreate auth containers with new addresses
   // while Kong retains a stale upstream. Recreating this local test stack is
   // the only portable way to keep the GoTrue/PostgREST fixture boundary real.
   await supabase("stop", "--no-backup");
   await supabase("start");
+  await waitForLocalPostgres();
   const [{ stdout: generatedTypes }, committedTypes] = await Promise.all([
     supabase("gen", "types", "typescript", "--local", "--schema", "public"),
     readFile(generatedTypesPath, "utf8")

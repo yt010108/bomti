@@ -35,9 +35,29 @@ async function availablePort() {
   return port;
 }
 
+function npmCommand(args) {
+  if (process.platform !== "win32") return ["npm", args];
+  const npmCli = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+  return [process.execPath, [npmCli, ...args]];
+}
+
+function startCommand(port) {
+  if (process.platform !== "win32") {
+    return npmCommand(["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(port)]);
+  }
+  return [process.execPath, [
+    path.join(process.cwd(), "node_modules", "next", "dist", "bin", "next"),
+    "start",
+    "--hostname",
+    "127.0.0.1",
+    "--port",
+    String(port)
+  ]];
+}
+
 async function runNpm(args, environment = process.env) {
-  const executable = process.platform === "win32" ? "npm.cmd" : "npm";
-  await execFileAsync(executable, args, {
+  const [executable, commandArgs] = npmCommand(args);
+  await execFileAsync(executable, commandArgs, {
     cwd: process.cwd(),
     encoding: "utf8",
     env: environment,
@@ -60,6 +80,14 @@ async function pollReadiness(url) {
 }
 
 async function stopService(service) {
+  if (process.platform === "win32") {
+    try {
+      await execFileAsync("taskkill", ["/PID", String(service.pid), "/T", "/F"], { windowsHide: true });
+    } catch (error) {
+      if (!(error instanceof Error) || !/not found|no running instance/i.test(error.stderr ?? error.message)) throw error;
+    }
+    return;
+  }
   if (service.exitCode !== null) return;
   const exited = new Promise((resolve) => service.once("exit", resolve));
   service.kill("SIGTERM");
@@ -90,6 +118,7 @@ export async function runFinalQa(flags) {
     BOMTI_TEST_SUPABASE_NAMESPACE: `bomti_${flags.sha.slice(0, 8)}_${port}`,
     BOMTI_QA_VIEWPORTS: typeof flags.viewports === "string" ? flags.viewports : "375,768,1280",
     BOMTI_QA_STATES: typeof flags.states === "string" ? flags.states : "",
+    BOMTI_API_TEST_MODE: "true",
     NO_UPDATE_NOTIFIER: "1"
   };
   let service = null;
@@ -104,8 +133,8 @@ export async function runFinalQa(flags) {
       `--sha=${flags.sha}`
     ], environment);
     await runNpm(["run", "build"], environment);
-    const executable = process.platform === "win32" ? "npm.cmd" : "npm";
-    service = spawn(executable, ["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(port)], {
+    const [executable, commandArgs] = startCommand(port);
+    service = spawn(executable, commandArgs, {
       cwd: process.cwd(),
       env: environment,
       stdio: "ignore"
