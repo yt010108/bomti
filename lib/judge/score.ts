@@ -17,6 +17,20 @@ export function projectGuest(candidate: DeepSeekCandidate): GuestProjection {
     contractVersion: "bomti_index_v1",
     finalIndex,
     descriptor: descriptorFor(finalIndex),
+    dimensions: {
+      contextMismatch: candidate.dimensions.contextMismatch.score,
+      genericityCliche: candidate.dimensions.genericityCliche.score,
+      credibilityRisk: candidate.dimensions.credibilityRisk.score,
+      specificityGap: candidate.dimensions.specificityGap.score,
+      toneReadabilityRisk: candidate.dimensions.toneReadabilityRisk.score
+    },
+    dimensionExplanations: {
+      contextMismatch: candidate.dimensions.contextMismatch.explanation,
+      genericityCliche: candidate.dimensions.genericityCliche.explanation,
+      credibilityRisk: candidate.dimensions.credibilityRisk.explanation,
+      specificityGap: candidate.dimensions.specificityGap.explanation,
+      toneReadabilityRisk: candidate.dimensions.toneReadabilityRisk.explanation
+    },
     explanation: candidate.explanation,
     evidence: candidate.evidence.slice(0, 3),
     improvements: candidate.improvements.slice(0, 3)

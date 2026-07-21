@@ -14,7 +14,7 @@ async function consent(page: Page) {
   await expect(all).toBeChecked();
 }
 
-test("@public-form-happy displays provider and quota before a keyboard-accessible guest submission", async ({ page }) => {
+test("@public-form-happy @result-a11y-feedback displays provider and quota before a keyboard-accessible guest submission", async ({ page }) => {
   const browserLogs: string[] = [];
   page.on("console", (message) => browserLogs.push(message.text()));
   for (const width of [375, 768, 1280]) {
@@ -32,7 +32,8 @@ test("@public-form-happy displays provider and quota before a keyboard-accessibl
   await page.keyboard.press("Enter");
   await expect(page.getByText("평가 요청을 마쳤습니다")).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
-  await expect(page.getByText("문장 근거")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "문장 근거" })).toBeVisible();
+  await expect(page.locator(".bomti-dimension")).toHaveCount(5);
   await page.goto("/?fixture=auth");
   await expect(page.getByText("이번 캠페인에서 3회")).toBeVisible();
   await fillRequiredFields(page);
@@ -40,6 +41,42 @@ test("@public-form-happy displays provider and quota before a keyboard-accessibl
   await page.getByRole("button", { name: "평가하기" }).click();
   await expect(page.getByText("인증 평가 결과는 삭제 가능한 이력으로 표시됩니다.")).toBeVisible();
   expect(browserLogs.join("\n")).not.toContain("browser-raw-sentinel@example.com");
+});
+
+test("@result-invalid-segment-xss rejects invalid evidence IDs and keeps provider text inert", async ({ page }) => {
+  let requestCount = 0;
+  await page.route("**/api/evaluations", async (route) => {
+    requestCount += 1;
+    const invalidSegment = requestCount === 1;
+    await route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        audience: "guest",
+        verdict: {
+          finalIndex: 42,
+          dimensions: { contextMismatch: 42, genericityCliche: 42, credibilityRisk: 42, specificityGap: 42, toneReadabilityRisk: 42 },
+          explanation: "<script>window.__bomtiXss = true</script>",
+          evidence: [{ segmentId: invalidSegment ? "invalid" : "s0001", dimension: "genericityCliche", summary: "<script>window.__bomtiXss = true</script>", severity: 42 }],
+          improvements: [{ dimension: "genericityCliche", direction: "Keep this inert", example: "<script>window.__bomtiXss = true</script>" }]
+        }
+      })
+    });
+  });
+
+  await page.goto("/?scenario=happy");
+  await fillRequiredFields(page);
+  await consent(page);
+  await page.locator('button[type="submit"]').click();
+  await expect(page.locator('form.bomti-panel > [role="alert"]')).toBeVisible();
+
+  await page.goto("/?scenario=happy");
+  await fillRequiredFields(page);
+  await consent(page);
+  await page.locator('button[type="submit"]').click();
+  await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  await expect(page.locator("body")).toContainText("<script>window.__bomtiXss = true</script>");
+  expect(await page.evaluate(() => (window as Window & { __bomtiXss?: boolean }).__bomtiXss)).toBeUndefined();
 });
 
 test("@guest-preview-failures exposes provider, network, and cancel states without fallback", async ({ page }) => {

@@ -106,6 +106,8 @@ export type GuestProjection = {
   readonly contractVersion: "bomti_index_v1";
   readonly finalIndex: number;
   readonly descriptor: Descriptor;
+  readonly dimensions: NormalizedVerdict["dimensions"];
+  readonly dimensionExplanations: NormalizedVerdict["dimensionExplanations"];
   readonly explanation: string;
   readonly evidence: readonly Evidence[];
   readonly improvements: readonly Improvement[];

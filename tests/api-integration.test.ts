@@ -77,6 +77,7 @@ describe("validated evaluation API", () => {
     expect(response.status).toBe(201);
     const value = await body(response);
     expect(value).toMatchObject({ audience: "guest", terminal: "completed" });
+    expect(Object.keys((value.verdict as { dimensions: Record<string, number> }).dimensions)).toHaveLength(5);
     expect(JSON.stringify(value)).not.toContain("person@example.com");
     const replay = await createEvaluation(request("/api/evaluations", {
       method: "POST", guest, key, headers: { "content-type": "application/json" }, body: JSON.stringify(payload())
