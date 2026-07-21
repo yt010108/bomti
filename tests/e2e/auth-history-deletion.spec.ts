@@ -1,5 +1,9 @@
 import { expect, test, type APIResponse, type BrowserContext, type Page } from "@playwright/test";
 
+// The deterministic auth fixture keeps one-use PKCE state server-local; run
+// its stateful browser scenarios in order without weakening production auth.
+test.describe.configure({ mode: "serial" });
+
 let sequence = 0;
 
 function user(prefix: string) {
