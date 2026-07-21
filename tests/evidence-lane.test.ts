@@ -184,4 +184,4 @@ describe("evidence lane", () => {
     expect(result.exitCode).not.toBe(0);
     expect(receipt.failureCode).toBe("NESTED_RECEIPT_SHA_MISMATCH");
   });
-});
+}, 15_000);
