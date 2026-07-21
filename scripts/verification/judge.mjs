@@ -3,8 +3,12 @@ import { promisify } from "node:util";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
 
 const execFileAsync = promisify(execFile);
-const currentProfiles = new Set(["contract-korean", "malformed-score-script-segment"]);
-const futureProfiles = new Set(["no-escalation-and-sol", "resume-after-terra-sol-capped"]);
+const currentProfiles = new Set([
+  "contract-korean",
+  "malformed-score-script-segment",
+  "no-escalation-and-sol",
+  "resume-after-terra-sol-capped"
+]);
 
 async function runJudgeContracts(profile) {
   await execFileAsync(
@@ -17,7 +21,8 @@ async function runJudgeContracts(profile) {
       "tests/judge-contract-boundaries.test.ts",
       "tests/judge-contract-verdict.test.ts",
       "tests/judge-contract-sol.test.ts",
-      "tests/judge-runner-profile.test.ts"
+      "tests/judge-runner-profile.test.ts",
+      "tests/judge-orchestrator.test.ts"
     ],
     {
       cwd: process.cwd(),
@@ -30,18 +35,6 @@ async function runJudgeContracts(profile) {
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
   requireReceiptFlags(flags);
-  if (futureProfiles.has(flags.profile)) {
-    await writeReceipt(flags.out, {
-      verdict: "blocked",
-      runner: "judge",
-      profile: flags.profile,
-      sha: flags.sha,
-      code: "dependency_not_ready",
-      scope: "future product dependency",
-      assertions: ["future judge dependency checked", "no unavailable behavior reported as pass"]
-    });
-    return;
-  }
   if (!currentProfiles.has(flags.profile)) throw new Error(`UNKNOWN_JUDGE_PROFILE:${flags.profile}`);
   await runJudgeContracts(flags.profile);
 
@@ -80,7 +73,8 @@ async function main() {
       "guest projection bounded",
       "Korean English and emoji fixtures passed",
       "NFC Unicode code-point and segment ceilings passed",
-      "exact provenance descriptor and Sol merge contracts passed"
+      "exact provenance descriptor and Sol merge contracts passed",
+      "hybrid no-escalation Sol escalation and idempotent resume fixtures passed"
     ]
   });
 }
