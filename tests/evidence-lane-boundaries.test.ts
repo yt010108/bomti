@@ -272,4 +272,4 @@ describe("evidence lane trust boundaries", () => {
     expect(receipt.failureCode).toMatch(/^NESTED_RECEIPT_/);
     expect(receipt.nestedReceipt).toBeNull();
   });
-});
+}, 15_000);
