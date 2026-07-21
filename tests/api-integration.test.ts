@@ -109,7 +109,9 @@ describe("validated evaluation API", () => {
     }), { params: Promise.resolve({ id: idA }) });
     expect(feedbackResult.status).toBe(201);
 
-    const deleted = await removeEvaluation(request(`/api/evaluations/${idA}`, { method: "DELETE", user: userA }), { params: Promise.resolve({ id: idA }) });
+    const unconfirmed = await removeEvaluation(request(`/api/evaluations/${idA}`, { method: "DELETE", user: userA }), { params: Promise.resolve({ id: idA }) });
+    expect((await body(unconfirmed)).error).toEqual({ code: "DELETE_CONFIRMATION_REQUIRED" });
+    const deleted = await removeEvaluation(request(`/api/evaluations/${idA}`, { method: "DELETE", user: userA, headers: { "x-bomti-confirm-delete": "true" } }), { params: Promise.resolve({ id: idA }) });
     expect(deleted.status).toBe(204);
     const absent = await getEvaluation(request(`/api/evaluations/${idA}`, { user: userA }), { params: Promise.resolve({ id: idA }) });
     expect(absent.status).toBe(404);
@@ -157,7 +159,7 @@ describe("validated evaluation API", () => {
     const stale = await deleteAccount(request("/api/account", { method: "DELETE", user }));
     expect((await body(stale)).error).toEqual({ code: "FRESH_SESSION_REQUIRED" });
     const removed = await deleteAccount(request("/api/account", { method: "DELETE", user, fresh: true }));
-    expect(await body(removed)).toEqual({ terminal: "account_deleted" });
+    expect(await body(removed)).toMatchObject({ terminal: "account_deleted", state: "complete", attempts: 1 });
     expect(await body(health())).toMatchObject({ status: "ok", auth: "fixture" });
     expect((await body(authCallback(new Request(`${origin}/auth/callback?state=only-state`)))).terminal).toBe("auth_failed");
     for (const route of ["tasks", "judge", "preferences"]) {

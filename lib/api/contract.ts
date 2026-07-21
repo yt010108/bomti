@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { assertSubjectActive, FixtureAuthError, fixtureSession, testFixtureSubject } from "../auth/fixture-auth";
 
 export const API_CONSENT_VERSION = "bomti_consent_v1" as const;
 export const MAX_EVALUATION_BODY_BYTES = 20_000;
@@ -99,8 +100,17 @@ export function testMode(): boolean {
 
 export function authenticatedSubject(request: Request): string | null {
   if (!testMode()) return null;
-  const subject = request.headers.get("x-bomti-test-user")?.trim();
-  return subject && /^[a-z0-9][a-z0-9_-]{2,63}$/i.test(subject) ? subject : null;
+  const directFixtureSubject = testFixtureSubject(request);
+  try {
+    if (directFixtureSubject) {
+      assertSubjectActive(directFixtureSubject);
+      return directFixtureSubject;
+    }
+    return fixtureSession(request)?.subject ?? null;
+  } catch (error) {
+    if (error instanceof FixtureAuthError) throw new ApiError(401, error.code);
+    throw error;
+  }
 }
 
 export function audienceFor(request: Request): { audience: ApiAudience; subject: string } {

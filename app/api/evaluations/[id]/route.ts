@@ -16,6 +16,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   try {
     requireSameOrigin(request);
+    if (request.headers.get("x-bomti-confirm-delete") !== "true") throw new Error("DELETE_CONFIRMATION_REQUIRED");
     evaluationApiService().remove(requireAuthenticated(request), (await context.params).id);
     return new Response(null, { status: 204, headers: { "Cache-Control": "no-store", Vary: "Origin, Cookie, Authorization" } });
   } catch (error) {
