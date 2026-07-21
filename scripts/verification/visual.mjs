@@ -45,7 +45,8 @@ async function ensureService(flags, targetUrl) {
 
   const parsed = new URL(targetUrl);
   const port = parsed.port || "3000";
-  const child = spawn("npm", ["run", "dev", "--", "--hostname", parsed.hostname, "--port", port], {
+  const npmExecutable = process.platform === "win32" ? "npm.cmd" : "npm";
+  const child = spawn(npmExecutable, ["run", "dev", "--", "--hostname", parsed.hostname, "--port", port], {
     cwd: process.cwd(),
     detached: process.platform !== "win32",
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
