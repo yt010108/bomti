@@ -86,13 +86,7 @@ describe("evidence lane", () => {
     const payload = [
       process.execPath,
       "-e",
-      `require("node:fs").writeFileSync(process.argv[1], JSON.stringify({
-        arbitraryAbsent: process.env.ISSUE9_SECRET_SENTINEL === undefined,
-        provider: process.env.BOMTI_TEST_PROVIDER,
-        auth: process.env.BOMTI_TEST_AUTH,
-        fixtureProfile: process.env.BOMTI_TEST_FIXTURE_PROFILE,
-        sourcePathAbsent: !process.env.PATH.includes(process.argv[2])
-      }))`,
+      `require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ arbitraryAbsent: process.env.ISSUE9_SECRET_SENTINEL === undefined, provider: process.env.BOMTI_TEST_PROVIDER, auth: process.env.BOMTI_TEST_AUTH, fixtureProfile: process.env.BOMTI_TEST_FIXTURE_PROFILE, sourcePathAbsent: !process.env.PATH.includes(process.argv[2]) }))`,
       probe,
       sourceBin
     ];
@@ -156,7 +150,7 @@ describe("evidence lane", () => {
     const wrapperOutput = path.join(fixtureRoot, "symlink-wrapper");
     const alias = path.join(fixtureRoot, "symlink-alias");
     await mkdir(wrapperOutput);
-    await symlink(wrapperOutput, alias);
+    await symlink(wrapperOutput, alias, process.platform === "win32" ? "junction" : "dir");
 
     const result = await runLane(repository, sha, wrapperOutput, [
       process.execPath,

@@ -81,9 +81,7 @@ async function executeReview(flags, snapshot, workspace) {
   await writeFile(schemaPath, `${JSON.stringify(reviewSchema(flags.sha), null, 2)}\n`, "utf8");
   const executable = typeof flags.codex === "string" ? flags.codex : "codex";
   const prompt = `Review the sanitized read-only Bomti snapshot at exact SHA ${flags.sha}. Return only the requested JSON review receipt.`;
-  await execFileAsync(
-    executable,
-    [
+  const arguments_ = [
       "exec",
       "--ignore-user-config",
       "--ignore-rules",
@@ -96,7 +94,11 @@ async function executeReview(flags, snapshot, workspace) {
       `--output-last-message=${resultPath}`,
       `--cd=${snapshot}`,
       prompt
-    ],
+    ];
+  const isNodeScript = /\.m?js$/i.test(executable);
+  await execFileAsync(
+    isNodeScript ? process.execPath : executable,
+    isNodeScript ? [executable, ...arguments_] : arguments_,
     { cwd: process.cwd(), encoding: "utf8", maxBuffer: 10 * 1024 * 1024 }
   );
   return z

@@ -50,6 +50,18 @@ async function statusAt(gitExecutable, directory) {
   return stdout.trim();
 }
 
+async function npm(npmExecutable, args, options) {
+  if (process.platform !== "win32") {
+    return execFileAsync(npmExecutable, args, options);
+  }
+
+  // npm.cmd cannot be launched safely with execFile on Windows. The CLI bundled
+  // beside the already verified npm.cmd runs under the trusted Node runtime
+  // without routing caller-controlled arguments through cmd.exe.
+  const npmCli = path.join(path.dirname(npmExecutable), "node_modules", "npm", "bin", "npm-cli.js");
+  return execFileAsync(process.execPath, [npmCli, ...args], options);
+}
+
 function exitCodeFrom(error) {
   return typeof error?.code === "number" ? error.code : 1;
 }
@@ -154,7 +166,7 @@ async function main() {
     ]);
 
     try {
-      await execFileAsync(npmExecutable, dependencyInstallCommand.slice(1), {
+      await npm(npmExecutable, dependencyInstallCommand.slice(1), {
         cwd: detachedDirectory,
         env: environment,
         encoding: "utf8"
@@ -168,11 +180,18 @@ async function main() {
     if (dependencyInstallExitCode === 0) {
       try {
         const payloadExecutable = path.basename(payload[0]).startsWith("npm") ? npmExecutable : payload[0];
-        await execFileAsync(payloadExecutable, payload.slice(1), {
-          cwd: detachedDirectory,
-          env: environment,
-          encoding: "utf8"
-        });
+        const payloadArguments = payload.slice(1);
+        await (payloadExecutable === npmExecutable
+          ? npm(npmExecutable, payloadArguments, {
+              cwd: detachedDirectory,
+              env: environment,
+              encoding: "utf8"
+            })
+          : execFileAsync(payloadExecutable, payloadArguments, {
+              cwd: detachedDirectory,
+              env: environment,
+              encoding: "utf8"
+            }));
         payloadExitCode = 0;
         laneExitCode = 0;
       } catch (error) {

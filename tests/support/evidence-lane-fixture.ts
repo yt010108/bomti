@@ -13,6 +13,11 @@ export type EvidenceLaneFixture = {
 };
 
 async function run(command: string, args: string[], cwd: string): Promise<void> {
+  if (process.platform === "win32" && command === "npm") {
+    const npmCli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+    await execFileAsync(process.execPath, [npmCli, ...args], { cwd, encoding: "utf8" });
+    return;
+  }
   await execFileAsync(command, args, { cwd, encoding: "utf8" });
 }
 
@@ -30,7 +35,10 @@ export async function createEvidenceLaneFixture(laneScript: string): Promise<Evi
     `${JSON.stringify({
       private: true,
       scripts: {
-        "evidence:lane": `${JSON.stringify(process.execPath)} ${JSON.stringify(laneScript)}`,
+        "evidence:lane":
+          process.platform === "win32"
+            ? `call "%npm_node_execpath%" ${JSON.stringify(laneScript)}`
+            : `${JSON.stringify(process.execPath)} ${JSON.stringify(laneScript)}`,
         "probe-dependency": "fixture-bin"
       },
       devDependencies: { "fixture-bin": "file:./fixture-bin" }
@@ -59,7 +67,7 @@ if (output) {
     const externalTarget = process.argv[externalIndex + 1];
     mkdirSync(externalTarget, { recursive: true });
     rmSync(output, { recursive: true, force: true });
-    symlinkSync(externalTarget, output, "dir");
+    symlinkSync(externalTarget, output, process.platform === "win32" ? "junction" : "dir");
   }
   mkdirSync(output, { recursive: true });
   const receipt = {
@@ -103,6 +111,7 @@ if (process.argv.includes("--exit-after-receipt")) process.exit(7);
     primaryRepository
   );
   await run("git", ["init"], primaryRepository);
+  await run("git", ["config", "core.autocrlf", "false"], primaryRepository);
   await run("git", ["config", "user.name", "Evidence Lane Test"], primaryRepository);
   await run("git", ["config", "user.email", "evidence-lane@example.invalid"], primaryRepository);
   await run("git", ["add", "."], primaryRepository);
