@@ -173,6 +173,8 @@ function projectGuest(verdict: NormalizedVerdict): GuestProjection {
     contractVersion: verdict.contractVersion,
     finalIndex: verdict.finalIndex,
     descriptor: verdict.descriptor,
+    dimensions: verdict.dimensions,
+    dimensionExplanations: verdict.dimensionExplanations,
     explanation: verdict.explanation,
     evidence: verdict.evidence.slice(0, 3),
     improvements: verdict.improvements.slice(0, 3)

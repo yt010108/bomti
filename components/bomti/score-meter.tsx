@@ -9,7 +9,7 @@ export function scoreDescriptor(score: number) {
   return descriptors.find((item) => score <= item.max)?.label ?? descriptors[3].label;
 }
 
-type Dimension = { label: string; score: number };
+type Dimension = { label: string; score: number; explanation?: string };
 
 export function ScoreMeter({ score, dimensions = [] }: { score: number; dimensions?: Dimension[] }) {
   const normalizedScore = Math.max(0, Math.min(100, Math.round(score)));
@@ -39,7 +39,7 @@ export function ScoreMeter({ score, dimensions = [] }: { score: number; dimensio
       <div className="bomti-meter__ticks" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
       {dimensions.length ? (
         <ul className="bomti-dimensions" aria-label="위험 차원 점수">
-          {dimensions.map((dimension) => <li className="bomti-dimension" key={dimension.label}><span>{dimension.label}</span><strong>{dimension.score}</strong></li>)}
+          {dimensions.map((dimension) => <li className="bomti-dimension" key={dimension.label}><span>{dimension.label}</span><strong>{dimension.score}</strong>{dimension.explanation ? <p>{dimension.explanation}</p> : null}</li>)}
         </ul>
       ) : null}
     </section>

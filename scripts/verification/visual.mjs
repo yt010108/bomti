@@ -6,7 +6,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
 import { parseFlags, requireReceiptFlags, writeReceipt } from "../evidence/receipt.mjs";
 
-const allowedProfiles = new Set(["primitive-showcase", "fixture-color-only-meter"]);
+const allowedProfiles = new Set(["primitive-showcase", "fixture-color-only-meter", "result-boundaries"]);
 
 function parseViewportList(value) {
   const widths = String(value ?? "375,768,1280").split(",").map(Number);
@@ -45,7 +45,11 @@ async function ensureService(flags, targetUrl) {
 
   const parsed = new URL(targetUrl);
   const port = parsed.port || "3000";
-  const child = spawn("npm", ["run", "dev", "--", "--hostname", parsed.hostname, "--port", port], {
+  const npmInvocation = process.platform === "win32"
+    ? [process.execPath, process.env.npm_execpath, "run", "dev", "--", "--hostname", parsed.hostname, "--port", port]
+    : ["npm", "run", "dev", "--", "--hostname", parsed.hostname, "--port", port];
+  if (process.platform === "win32" && !process.env.npm_execpath) throw new Error("NPM_EXEC_PATH_REQUIRED");
+  const child = spawn(npmInvocation[0], npmInvocation.slice(1), {
     cwd: process.cwd(),
     detached: process.platform !== "win32",
     env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
@@ -56,8 +60,17 @@ async function ensureService(flags, targetUrl) {
 }
 
 async function stopService(child) {
-  if (!child || child.exitCode !== null) return;
-  if (process.platform !== "win32" && child.pid) process.kill(-child.pid, "SIGTERM");
+  if (!child) return;
+  if (process.platform === "win32" && child.pid) {
+    const terminator = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    await Promise.race([
+      new Promise((resolve) => terminator.once("exit", resolve)),
+      new Promise((resolve) => setTimeout(resolve, 5_000))
+    ]);
+    return;
+  }
+  if (child.exitCode !== null) return;
+  if (child.pid) process.kill(-child.pid, "SIGTERM");
   else child.kill("SIGTERM");
   await Promise.race([
     new Promise((resolve) => child.once("exit", resolve)),
@@ -68,6 +81,7 @@ async function stopService(child) {
 function urlForState(baseUrl, profile, state) {
   const url = new URL(baseUrl);
   if (profile === "fixture-color-only-meter") url.searchParams.set("fixture", "color-only-meter");
+  else if (profile === "result-boundaries") url.searchParams.set("scenario", `result-${state}`);
   else if (state !== "default") url.searchParams.set("state", state);
   return url.toString();
 }
