@@ -60,8 +60,17 @@ async function ensureService(flags, targetUrl) {
 }
 
 async function stopService(child) {
-  if (!child || child.exitCode !== null) return;
-  if (process.platform !== "win32" && child.pid) process.kill(-child.pid, "SIGTERM");
+  if (!child) return;
+  if (process.platform === "win32" && child.pid) {
+    const terminator = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    await Promise.race([
+      new Promise((resolve) => terminator.once("exit", resolve)),
+      new Promise((resolve) => setTimeout(resolve, 5_000))
+    ]);
+    return;
+  }
+  if (child.exitCode !== null) return;
+  if (child.pid) process.kill(-child.pid, "SIGTERM");
   else child.kill("SIGTERM");
   await Promise.race([
     new Promise((resolve) => child.once("exit", resolve)),
