@@ -32,11 +32,12 @@
     "verify:independent-review": "node scripts/verification/fixture.mjs independent-review",
     "env:check": "node scripts/verification/env-check.mjs",
     "dev:test": "next dev",
-    "benchmark:validate": "node scripts/verification/fixture.mjs benchmark-validate",
-    "benchmark:pair": "node scripts/verification/fixture.mjs benchmark-pair",
-    "benchmark:import": "node scripts/verification/fixture.mjs benchmark-import",
-    "benchmark:export": "node scripts/verification/fixture.mjs benchmark-export",
-    "benchmark:report": "node scripts/verification/benchmark-report.mjs"
+    "benchmark:validate": "node --experimental-strip-types scripts/verification/benchmark.ts validate",
+    "benchmark:pair": "node --experimental-strip-types scripts/verification/benchmark.ts pair",
+    "benchmark:curate": "node --experimental-strip-types scripts/verification/benchmark.ts curate",
+    "benchmark:import": "node --experimental-strip-types scripts/verification/benchmark.ts import",
+    "benchmark:export": "node --experimental-strip-types scripts/verification/benchmark.ts export",
+    "benchmark:report": "node --experimental-strip-types scripts/verification/benchmark.ts report"
   },
   "dependencies": {
     "next": "15.5.20",

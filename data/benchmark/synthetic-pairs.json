@@ -1,0 +1,108 @@
+{
+  "contractVersion": "bomti_benchmark_v1",
+  "records": [
+    {
+      "recordId": "10000000-0000-4000-8000-000000000001",
+      "groupId": "20000000-0000-4000-8000-000000000001",
+      "questionClass": "experience",
+      "targetRoleClass": "software_engineering",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic A: names a concrete reliability check and result." }],
+      "verdict": { "finalIndex": 42, "descriptor": "low_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    },
+    {
+      "recordId": "10000000-0000-4000-8000-000000000002",
+      "groupId": "20000000-0000-4000-8000-000000000001",
+      "questionClass": "experience",
+      "targetRoleClass": "software_engineering",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic B: keeps the same evidence but uses a generic conclusion." }],
+      "verdict": { "finalIndex": 47, "descriptor": "low_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    },
+    {
+      "recordId": "10000000-0000-4000-8000-000000000003",
+      "groupId": "20000000-0000-4000-8000-000000000002",
+      "questionClass": "competency",
+      "targetRoleClass": "data_ai",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic C: states a scoped method and a verifiable outcome." }],
+      "verdict": { "finalIndex": 78, "descriptor": "high_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    },
+    {
+      "recordId": "10000000-0000-4000-8000-000000000004",
+      "groupId": "20000000-0000-4000-8000-000000000002",
+      "questionClass": "competency",
+      "targetRoleClass": "data_ai",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic D: claims broad expertise without supporting evidence." }],
+      "verdict": { "finalIndex": 31, "descriptor": "low_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    },
+    {
+      "recordId": "10000000-0000-4000-8000-000000000005",
+      "groupId": "20000000-0000-4000-8000-000000000003",
+      "questionClass": "collaboration",
+      "targetRoleClass": "product_business",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic E: explains a stakeholder decision with one specific tradeoff." }],
+      "verdict": { "finalIndex": 18, "descriptor": "minimal_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    },
+    {
+      "recordId": "10000000-0000-4000-8000-000000000006",
+      "groupId": "20000000-0000-4000-8000-000000000003",
+      "questionClass": "collaboration",
+      "targetRoleClass": "product_business",
+      "answerSegments": [{ "segmentId": "s0001", "text": "Synthetic F: provides a generic team-work claim without a tradeoff." }],
+      "verdict": { "finalIndex": 72, "descriptor": "high_bomti" },
+      "anonymizationVersion": "bomti_privacy_v1",
+      "provenanceClass": "synthetic",
+      "reviewStatus": "synthetic"
+    }
+  ],
+  "pairs": [
+    {
+      "pairId": "30000000-0000-4000-8000-000000000001",
+      "leftRecordId": "10000000-0000-4000-8000-000000000001",
+      "rightRecordId": "10000000-0000-4000-8000-000000000002",
+      "groupId": "20000000-0000-4000-8000-000000000001",
+      "systemChoice": "tie"
+    },
+    {
+      "pairId": "30000000-0000-4000-8000-000000000002",
+      "leftRecordId": "10000000-0000-4000-8000-000000000003",
+      "rightRecordId": "10000000-0000-4000-8000-000000000004",
+      "groupId": "20000000-0000-4000-8000-000000000002",
+      "systemChoice": "left"
+    },
+    {
+      "pairId": "30000000-0000-4000-8000-000000000003",
+      "leftRecordId": "10000000-0000-4000-8000-000000000005",
+      "rightRecordId": "10000000-0000-4000-8000-000000000006",
+      "groupId": "20000000-0000-4000-8000-000000000003",
+      "systemChoice": "right"
+    }
+  ],
+  "ratings": [
+    { "pairId": "30000000-0000-4000-8000-000000000001", "raterAlias": "r101", "choice": "tie", "rationaleCodes": ["context_fit"] },
+    { "pairId": "30000000-0000-4000-8000-000000000001", "raterAlias": "r102", "choice": "tie", "rationaleCodes": ["tone_readability"] },
+    { "pairId": "30000000-0000-4000-8000-000000000001", "raterAlias": "r103", "choice": "abstain", "rationaleCodes": [] },
+    { "pairId": "30000000-0000-4000-8000-000000000002", "raterAlias": "r101", "choice": "left", "rationaleCodes": ["specificity"] },
+    { "pairId": "30000000-0000-4000-8000-000000000002", "raterAlias": "r102", "choice": "left", "rationaleCodes": ["credibility"] },
+    { "pairId": "30000000-0000-4000-8000-000000000002", "raterAlias": "r103", "choice": "right", "rationaleCodes": ["other_reviewed"] },
+    { "pairId": "30000000-0000-4000-8000-000000000003", "raterAlias": "r101", "choice": "abstain", "rationaleCodes": [] },
+    { "pairId": "30000000-0000-4000-8000-000000000003", "raterAlias": "r102", "choice": "abstain", "rationaleCodes": [] }
+  ],
+  "usefulness": [
+    { "rating": 5, "reasonCode": "clear_explanation" },
+    { "rating": 3, "reasonCode": "not_actionable" }
+  ]
+}

@@ -14,17 +14,11 @@ const futureProfiles = {
     "link-free-vercel-migration-backup-restore",
     "paused-db-missing-model-disabled-budget-expired-oauth-provider429-corrupt-backup"
   ],
-  "independent-review": ["readonly-final"],
-  "benchmark-validate": ["three-synthetic-operator-absent", "owner-evaluation-context-hash-bad-alias-rare-duplicate"],
-  "benchmark-pair": ["synthetic-anonymous-group"],
-  "benchmark-import": ["synthetic-contract-only"],
-  "benchmark-export": ["synthetic-eligible", "last-rejected-set"],
-  "benchmark-report": ["metric-formulas-missing-ties", "majority-tie-abstain-missing"]
+  "independent-review": ["readonly-final"]
 };
 
 const operatorProfiles = {
-  live: ["authorization-state"],
-  "benchmark-pair": ["eligible-live"]
+  live: ["authorization-state"]
 };
 
 const runners = new Set([...Object.keys(futureProfiles), ...Object.keys(operatorProfiles)]);

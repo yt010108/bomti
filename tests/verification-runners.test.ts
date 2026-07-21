@@ -51,12 +51,6 @@ describe("verification fixture runner", () => {
         expectedCode: "dependency_not_ready"
       },
       {
-        runner: "benchmark-pair",
-        profile: "eligible-live",
-        expectedVerdict: "blocked",
-        expectedCode: "operator_not_supplied"
-      },
-      {
         runner: "live",
         profile: "authorization-state",
         expectedVerdict: "skipped",
